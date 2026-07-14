@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 *.env
+# Artefactos de sincronización (Google Drive / Cowork), no son del proyecto
+.tmp.driveupload/
+.tmp.drivedownload/
+.history-files/
+*.lnk
