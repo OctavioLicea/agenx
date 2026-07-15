@@ -8,14 +8,17 @@
 > sueltos anteriores (Sesiones 2 a 9) — esos quedan como archivo
 > histórico, no se vuelven a tocar.
 >
-> Última actualización: Sesión 11 (continuación), 13 de julio 2026 (23:55 hrs).
+> Última actualización: Sesión 12, 14 de julio 2026.
 
 ---
 
 ## 🚀 Pendiente inmediato — Deploy
 
-- [ ] **Subir a producción (`npm run deploy` → gh-pages → `tuasesor.eventosytech.com`)**. Lo construido en Sesión 11 (importar contactos, vaciar contactos, PIN de la Bóveda + "olvidé mi PIN", enviar documentos de la Bóveda por correo, orden/filtro por fecha en Propiedades/Contactos, fix de color del filtro de Propiedades) solo existe en local — no se ha corrido el deploy todavía.
-- [ ] Después de desplegar: probar en el sitio real (no solo local) el flujo de PIN de la Bóveda y el envío de documentos por correo, porque dependen de `window.location.href` (mailto) y `sessionStorage`, que pueden comportarse distinto entre `localhost` y el dominio real.
+- [x] **Subir a producción (`npm run deploy` → gh-pages → `tuasesor.eventosytech.com`)** — hecho en Sesión 12 (14 jul). Commit de todo lo pendiente de Sesión 11 preparado en Cowork (revisado a mano: sin secretos, sin archivos de sync colados); `npm run deploy` corrido por Okta desde su máquina — build de Vite ok (254 módulos), publicado.
+- [x] **Fix: `CNAME` movido a `public/CNAME`** (Sesión 12) — el primer deploy de la sesión rompió el dominio custom (`tuasesor.eventosytech.com` → 404 "no GitHub Pages site here") porque `CNAME` vivía solo en la raíz del proyecto y Vite no lo copiaba al build; cada `npm run deploy` publica `dist/` completo a `gh-pages`, así que el dominio se perdió. Corregido copiando `CNAME` a `public/` para que sobreviva a todo build futuro. Confirmado vía `git show origin/gh-pages:CNAME` que ya está de vuelta en la rama.
+- [ ] **Confirmar que el sitio ya responde** — al cierre de Sesión 12, tras el fix y el segundo deploy, `tuasesor.eventosytech.com` seguía sin cargar (404/vacío) pese a que Settings → Pages ya muestra el dominio correcto, "DNS check successful" y HTTPS forzado. Hipótesis: GitHub re-emitiendo certificado / caché de CDN tras el cambio de estado del dominio — normalmente tarda minutos, no debería pasar de 1-2 horas. Si sigue caído más allá de eso, revisar de nuevo o contactar soporte de GitHub.
+- [ ] Probar en el sitio real (no solo local) el flujo de PIN de la Bóveda y el envío de documentos por correo, porque dependen de `window.location.href` (mailto) y `sessionStorage`, que pueden comportarse distinto entre `localhost` y el dominio real. Bloqueado hasta que el punto anterior se resuelva.
+- [ ] Bundle de producción pesa 716 kB JS (gzip) — Vite avisó "chunks larger than 500 kB after minification". No bloqueante, pero queda como pendiente de optimización (code-splitting con `import()` dinámico) si se vuelve notorio en móvil.
 
 ---
 
@@ -111,4 +114,30 @@
 - [ ] Sistema de tareas/to-do's asociado a Interacciones (formal, no un flag).
 - [ ] Generador de posts para redes sociales con IA.
 - [ ] Dashboard con funnel/reportes general.
-- [ ] Captura públ
+- [ ] Captura pública / liga al cliente.
+- [ ] Integración oficial de WhatsApp API (o VoIP para llamadas) — requiere que Nydia cambie cómo opera, no es solo desarrollo.
+- [ ] Módulo de cierre/post-venta.
+- [ ] Chat en lenguaje natural (IA) — 3 capacidades independientes.
+- [x] ~~Botón "Enviar a cliente" del Vault.~~ Construido en Sesión 11 (ver sección "Bóveda de documentos" arriba) — ya no es Fase 2.
+
+---
+
+## ❓ Decisiones abiertas
+
+- Fusión o separación de Interacciones y Citas/Visitas (Sprint 3 vs Sprint N).
+- ~~¿Documentos de la Bóveda también para contactos, o se queda permanentemente solo en propiedades?~~ **Resuelto parcialmente (Sesión 11)**: los documentos se siguen subiendo únicamente por propiedad (`documentos_propiedad`), pero ahora SÍ se pueden enviar a un contacto por correo desde la ficha del contacto (`EnviarDocumentosBoveda.jsx`) — no se duplican ni se suben documentos propios de un contacto.
+- Uso futuro del ícono de cuadros del logo como guiño visual en las fichas.
+- ~~**¿`contacto_propiedades` sigue vigente?**~~ **Resuelto (Sesión 11)**: sí existe — confirmada vía `information_schema` al revisar los FK de `contactos` antes de construir "eliminar contacto" (tiene `contacto_id` con `ON DELETE CASCADE`). Sigue sin evidencia de tener una pantalla propia que la use; queda pendiente confirmar con Okta para qué se está usando hoy en la práctica.
+- **Proyecto de Claude.ai (conocimiento importado) desactualizado desde la Sesión 8** (6 de julio) — no refleja la migración de documentación a `docs/` decidida en Sesión 10 ni nada de lo construido en Sesiones 9-11. Detectado en Sesión 11 al pedir un recap: se leyó primero el conocimiento de Claude.ai (única fuente disponible al inicio de esa sesión) antes de confirmar que `docs/` en el repo era la fuente vigente. Pendiente decidir: ¿se sigue actualizando ese proyecto en paralelo, o se marca explícitamente como archivo histórico congelado en Sesión 8?
+
+---
+
+## Principios vigentes
+
+- **YAGNI** — no construir nada que Nydia no necesite ya.
+- **Hybrid jsonb / tabla puente**: columnas reales para lo filtrable/ordenable; jsonb para lo descriptivo de forma variable; tabla relacional puente cuando el campo múltiple SÍ se busca/filtra con frecuencia.
+- **Un solo acento funcional** (`--ta-accent`, verde bosque) a la vez.
+- **Fases, Sprints y alcance son acuerdos de trabajo, no contratos rígidos**.
+- **Relación vs. evento vs. embudo son 3 conceptos separados, nunca fusionar**: `propiedad_colaboradores`, `interacciones`, `procesos_comerciales`. Caso de validación: "Don Luis el plomero".
+- **Postgres `NULL` + `UNIQUE` no son excluyentes** — usar en vez de valores centinela inventados.
+- **Migraciones: correr siempre como un solo bloque, nunca por partes** — y verificar inmediatamente después con una query de `information_schema` que confirme que las relaciones/columnas esperadas de verdad quedaron creadas, en vez de asumir que "sin error visible" significa "se aplicó completa". Añadido tras el incidente de Sesión 10 (`contacto_telefonos`/`interacciones` nunca se crearon en la primera corrida, y la columna vieja se eliminó de todas formas antes de notarlo).
