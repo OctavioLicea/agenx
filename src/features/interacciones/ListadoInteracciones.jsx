@@ -382,4 +382,9 @@ export default function ListadoInteracciones({ refreshKey = 0 }) {
           <ContactoForm
             contactoInicial={contactoModal}
             onGuardado={() => setContactoModal(null)}
-  
+          />
+        </div>
+      )}
+    </div>
+  )
+}

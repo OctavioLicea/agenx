@@ -534,4 +534,7 @@ export default function ListadoContactos({ onSeleccionar, onNuevo, refreshKey = 
           onCancelar={() => { setMostrarVaciar(false); setErrorVaciar(null) }}
           onConfirmar={vaciarContactos}
         />
-      
+      )}
+    </div>
+  )
+}

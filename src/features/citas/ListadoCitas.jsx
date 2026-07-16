@@ -396,4 +396,9 @@ export default function ListadoCitas({ refreshKey = 0 }) {
           <ContactoForm
             contactoInicial={contactoModal}
             onGuardado={() => setContactoModal(null)}
-  
+          />
+        </div>
+      )}
+    </div>
+  )
+}

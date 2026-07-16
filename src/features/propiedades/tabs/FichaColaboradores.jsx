@@ -690,4 +690,9 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
           propiedadId={propiedadId}
           propiedadTitulo={propiedadTitulo}
           onCerrar={() => setMostrarFormCita(false)}
-          onGuardado={() => setMostrarFormCita(f
+          onGuardado={() => setMostrarFormCita(false)}
+        />
+      )}
+    </div>
+  )
+}
