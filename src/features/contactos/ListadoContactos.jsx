@@ -182,7 +182,7 @@ export default function ListadoContactos({ onSeleccionar, onNuevo, refreshKey = 
     supabase
       .from('contactos')
       .select(`
-        id, nombre, empresa, rol_principal, correo, created_at,
+        id, nombre, empresa, rol_principal, correo, nota_sin_propiedad, created_at,
         contacto_telefonos(telefono, es_principal),
         interacciones(count),
         propiedad_colaboradores(count)
@@ -534,7 +534,4 @@ export default function ListadoContactos({ onSeleccionar, onNuevo, refreshKey = 
           onCancelar={() => { setMostrarVaciar(false); setErrorVaciar(null) }}
           onConfirmar={vaciarContactos}
         />
-      )}
-    </div>
-  )
-}
+      

@@ -84,7 +84,7 @@ export default function ListadoCitas({ refreshKey = 0 }) {
     setCargando(true)
     supabase
       .from('visitas')
-      .select('id, estado, nota, fecha_hora, contactos(id, nombre), propiedades(id, titulo, fotos_propiedad(storage_path, es_portada))')
+      .select('id, estado, nota, fecha_hora, contactos(id, nombre, empresa, correo, rol_principal, nota_sin_propiedad), propiedades(id, titulo, fotos_propiedad(storage_path, es_portada))')
       .order('fecha_hora', { ascending: true })
       .then(({ data, error: fetchError }) => {
         if (fetchError) {
@@ -396,9 +396,4 @@ export default function ListadoCitas({ refreshKey = 0 }) {
           <ContactoForm
             contactoInicial={contactoModal}
             onGuardado={() => setContactoModal(null)}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
+  

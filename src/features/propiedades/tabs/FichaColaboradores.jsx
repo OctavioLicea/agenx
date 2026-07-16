@@ -184,7 +184,7 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
     setCargando(true)
     const { data, error } = await supabase
       .from('propiedad_colaboradores')
-      .select('id, rol, rol_otro, porcentaje_comision, activo, contactos(id, nombre, correo, contacto_telefonos(telefono, es_principal))')
+      .select('id, rol, rol_otro, porcentaje_comision, activo, contactos(id, nombre, correo, empresa, rol_principal, nota_sin_propiedad, contacto_telefonos(telefono, es_principal))')
       .eq('propiedad_id', propiedadId)
       .order('created_at', { ascending: true })
 
@@ -690,9 +690,4 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
           propiedadId={propiedadId}
           propiedadTitulo={propiedadTitulo}
           onCerrar={() => setMostrarFormCita(false)}
-          onGuardado={() => setMostrarFormCita(false)}
-        />
-      )}
-    </div>
-  )
-}
+          onGuardado={() => setMostrarFormCita(f

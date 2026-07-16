@@ -92,7 +92,7 @@ export default function ListadoInteracciones({ refreshKey = 0 }) {
     setCargando(true)
     supabase
       .from('interacciones')
-      .select('id, canal, direccion, nota, fecha_hora, contactos(id, nombre), propiedades(id, titulo, fotos_propiedad(storage_path, es_portada))')
+      .select('id, canal, direccion, nota, fecha_hora, contactos(id, nombre, empresa, correo, rol_principal, nota_sin_propiedad), propiedades(id, titulo, fotos_propiedad(storage_path, es_portada))')
       .order('fecha_hora', { ascending: false })
       .then(({ data, error: fetchError }) => {
         if (fetchError) {
@@ -382,9 +382,4 @@ export default function ListadoInteracciones({ refreshKey = 0 }) {
           <ContactoForm
             contactoInicial={contactoModal}
             onGuardado={() => setContactoModal(null)}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
+  
