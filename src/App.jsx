@@ -10,18 +10,26 @@
 //   Contactos (evita refetch/remount innecesario al navegar entre módulos).
 // Timestamp: 2026-07-13, 21:41 hrs
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from './lib/supabaseClient'
 import LoginForm from './features/auth/LoginForm'
-import PropiedadForm from './features/propiedades/PropiedadForm'
 import ListadoPropiedades from './features/propiedades/ListadoPropiedades'
-import PerfilForm from './features/perfil/PerfilForm'
 import ListadoContactos from './features/contactos/ListadoContactos'
-import ContactoForm from './features/contactos/ContactoForm'
 import ListadoInteracciones from './features/interacciones/ListadoInteracciones'
 import ListadoCitas from './features/citas/ListadoCitas'
 import TopBar from './components/TopBar'
 import './App.css'
+
+// Sesión 16: PropiedadForm, ContactoForm y PerfilForm se cargan solo
+// cuando `vista` realmente los necesita (a diferencia de los 4 Listado*
+// de arriba, que se quedan montados siempre a propósito — ver comentario
+// más abajo — estos 3 SÍ se desmontan/remontan, así que lazy() no rompe
+// ese patrón y sí saca su peso (incluye @react-pdf/renderer vía
+// ExportaFicha) del bundle inicial. Bajó el aviso de Vite de "chunks
+// larger than 500 kB" reportado en Sesión 12.
+const PropiedadForm = lazy(() => import('./features/propiedades/PropiedadForm'))
+const ContactoForm = lazy(() => import('./features/contactos/ContactoForm'))
+const PerfilForm = lazy(() => import('./features/perfil/PerfilForm'))
 
 function App() {
   const [sesion, setSesion] = useState(null)
@@ -184,25 +192,31 @@ function App() {
       </div>
 
       {vista === 'form' && (
-        <PropiedadForm
-          propiedadInicial={propiedadSeleccionada}
-          onGuardado={irAlBuscador}
-        />
+        <Suspense fallback={<p style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--ta-text-muted)' }}>Cargando...</p>}>
+          <PropiedadForm
+            propiedadInicial={propiedadSeleccionada}
+            onGuardado={irAlBuscador}
+          />
+        </Suspense>
       )}
 
       {vista === 'contacto-form' && (
-        <ContactoForm
-          contactoInicial={contactoSeleccionado}
-          onGuardado={alSalirDeContacto}
-        />
+        <Suspense fallback={<p style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--ta-text-muted)' }}>Cargando...</p>}>
+          <ContactoForm
+            contactoInicial={contactoSeleccionado}
+            onGuardado={alSalirDeContacto}
+          />
+        </Suspense>
       )}
 
       {vista === 'perfil' && (
-        <PerfilForm
-          user={sesion.user}
-          onGuardado={alGuardarPerfil}
-          onPerfilActualizado={() => setPerfilVersion((v) => v + 1)}
-        />
+        <Suspense fallback={<p style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--ta-text-muted)' }}>Cargando...</p>}>
+          <PerfilForm
+            user={sesion.user}
+            onGuardado={alGuardarPerfil}
+            onPerfilActualizado={() => setPerfilVersion((v) => v + 1)}
+          />
+        </Suspense>
       )}
     </div>
   )

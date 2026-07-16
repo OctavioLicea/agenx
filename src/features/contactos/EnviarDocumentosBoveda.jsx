@@ -114,7 +114,7 @@ function BuscadorPropiedadCompacto({ propiedadElegida, onSeleccionar, onQuitar }
         />
       </div>
       {texto.trim() && (
-        <div style={{ marginTop: 6, border: '0.5px solid var(--ta-border)', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ marginTop: 6, border: '0.5px solid var(--ta-border)', borderRadius: 10, overflow: 'hidden', maxHeight: 260, overflowY: 'auto' }}>
           {buscando ? (
             <p style={{ margin: 0, padding: 10, fontSize: 12, color: 'var(--ta-text-muted)' }}>Buscando...</p>
           ) : resultados.length > 0 ? (

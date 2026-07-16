@@ -52,6 +52,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
 import { verificarPin, generarSalt, hashPin, generarCodigo6, PIN_LARGO } from '../../../lib/bovedaPin'
+import EscanearDocumento from './EscanearDocumento'
 import iconoPdf from '../../../assets/doctypes/pdf.png'
 import iconoWord from '../../../assets/doctypes/word.png'
 import iconoExcel from '../../../assets/doctypes/excel.png'
@@ -171,6 +172,15 @@ function IconoSubir() {
       <path d="M12 15V3" />
       <path d="m7 8 5-5 5 5" />
       <path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
+    </svg>
+  )
+}
+
+function IconoCamaraChica() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+      <circle cx="12" cy="13" r="3.5" />
     </svg>
   )
 }
@@ -488,6 +498,7 @@ export default function FichaDocumentos({ propiedadId }) {
   const [error, setError] = useState(null)
 
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [mostrarEscaner, setMostrarEscaner] = useState(false)
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null)
   const [tipoDocumento, setTipoDocumento] = useState(TIPOS[0].value)
   const [tipoOtro, setTipoOtro] = useState('')
@@ -722,18 +733,35 @@ export default function FichaDocumentos({ propiedadId }) {
 
           <input ref={inputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.xlsm,.txt,.jpg,.jpeg,.png,.xml,.eml,.svg" style={{ display: 'none' }} onChange={handleSeleccion} />
 
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            style={{
-              width: '100%', height: 40, borderRadius: 8, marginBottom: 10,
-              border: '1.5px dashed var(--ta-border)', background: 'none', color: 'var(--ta-text-muted)',
-              fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            }}
-          >
-            <IconoSubir />
-            {archivoSeleccionado ? archivoSeleccionado.name : 'Elegir archivo...'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              style={{
+                flex: 1, height: 40, borderRadius: 8,
+                border: '1.5px dashed var(--ta-border)', background: 'none', color: 'var(--ta-text-muted)',
+                fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, minWidth: 0,
+              }}
+            >
+              <IconoSubir />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {archivoSeleccionado ? archivoSeleccionado.name : 'Elegir archivo...'}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMostrarEscaner(true)}
+              aria-label="Escanear documento"
+              title="Escanear documento"
+              style={{
+                width: 44, height: 40, borderRadius: 8, flexShrink: 0,
+                border: '1.5px dashed var(--ta-border)', background: 'none', color: 'var(--ta-text-muted)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <IconoCamaraChica />
+            </button>
+          </div>
 
           <p style={{ margin: '0 0 6px', fontSize: 12, color: 'var(--ta-text-muted)' }}>Tipo de documento</p>
           <select
@@ -889,6 +917,16 @@ export default function FichaDocumentos({ propiedadId }) {
       <p style={{ fontSize: 11, color: 'var(--ta-text-muted)', margin: '10px 0 0' }}>
         Máximo {MAX_DOCUMENTO_MB} MB por archivo. PDF, Word, Excel, TXT, JPG, PNG, XML, EML o SVG.
       </p>
+
+      {mostrarEscaner && (
+        <EscanearDocumento
+          onCerrar={() => setMostrarEscaner(false)}
+          onEscaneado={(file) => {
+            setArchivoSeleccionado(file)
+            setMostrarEscaner(false)
+          }}
+        />
+      )}
     </div>
   )
 }

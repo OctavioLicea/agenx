@@ -8,14 +8,17 @@
 //   navegación inferior aunque esté arriba del wizard.
 // Timestamp: 2026-07-08, 22:35 hrs
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { usePropiedad, PROPIEDAD_VACIA } from './hooks/usePropiedad'
 import FichaBasico from './tabs/FichaBasico'
 import FichaMediaUbic from './tabs/FichaMediaUbic'
 import FichaColaboradores from './tabs/FichaColaboradores'
 import FichaTecnica from './tabs/FichaTecnica'
 import FichaDocumentos from './tabs/FichaDocumentos'
-import ExportaFicha from './ExportaFicha'
+// Sesión 16: lazy — ExportaFicha carga @react-pdf/renderer, el paquete
+// más pesado del bundle, y solo hace falta cuando de verdad se exporta
+// un PDF (no en cada apertura del wizard de Propiedades).
+const ExportaFicha = lazy(() => import('./ExportaFicha'))
 
 const PASOS = [
   { key: 'basico', label: 'Básico' },
@@ -439,7 +442,9 @@ export default function PropiedadForm({ propiedadInicial, onGuardado }) {
       </div>
 
       {mostrarExport && (
-        <ExportaFicha propiedad={propiedad} onCerrar={() => setMostrarExport(false)} />
+        <Suspense fallback={<p style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--ta-text-muted)' }}>Cargando...</p>}>
+          <ExportaFicha propiedad={propiedad} onCerrar={() => setMostrarExport(false)} />
+        </Suspense>
       )}
     </div>
   )

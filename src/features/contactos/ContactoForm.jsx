@@ -102,6 +102,51 @@ function IconoEnviarDocs() {
   )
 }
 
+// Ícono de "descargar vCard" — flecha hacia una bandeja, mismo trazo que
+// IconoCorreo/IconoTelefono. Sesión 16: botón "Agregar a contactos".
+function IconoDescargarVCard() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v12" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M4 19h16" />
+    </svg>
+  )
+}
+
+// Genera el contenido de un vCard 3.0 a partir del contacto + sus teléfonos.
+// Mismo criterio de escapado básico (coma/punto y coma/salto de línea) que
+// usa el parser de vCard en ImportarContactos.jsx, en sentido inverso.
+function escaparVCard(texto) {
+  return String(texto ?? '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n')
+}
+
+function generarVCard(contacto, telefonos) {
+  const lineas = ['BEGIN:VCARD', 'VERSION:3.0']
+  lineas.push(`FN:${escaparVCard(contacto.nombre || 'Sin nombre')}`)
+  if (contacto.empresa?.trim()) lineas.push(`ORG:${escaparVCard(contacto.empresa.trim())}`)
+  if (contacto.rol_principal?.trim()) lineas.push(`TITLE:${escaparVCard(contacto.rol_principal.trim())}`)
+  telefonos.forEach((t) => lineas.push(`TEL;TYPE=CELL:${escaparVCard(t.telefono)}`))
+  if (contacto.correo?.trim()) lineas.push(`EMAIL:${escaparVCard(contacto.correo.trim())}`)
+  if (contacto.nota_sin_propiedad?.trim()) lineas.push(`NOTE:${escaparVCard(contacto.nota_sin_propiedad.trim())}`)
+  lineas.push('END:VCARD')
+  return lineas.join('\r\n')
+}
+
+function descargarVCard(contacto, telefonos) {
+  const vcf = generarVCard(contacto, telefonos)
+  const blob = new Blob([vcf], { type: 'text/vcard;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const nombreArchivo = (contacto.nombre || 'contacto').trim().replace(/[^a-z0-9]+/gi, '_').toLowerCase()
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${nombreArchivo || 'contacto'}.vcf`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 // Ícono de "quitar" — mismo trazo/grosor que el resto de íconos del archivo,
 // reservado para desasociar (nunca para borrar el contacto/propiedad en sí).
 function IconoQuitar() {
@@ -712,6 +757,17 @@ export default function ContactoForm({ contactoInicial, onGuardado }) {
                 style={{ width: 44, height: 44, borderRadius: 10, border: '0.5px solid var(--ta-border)', background: 'none', color: 'var(--ta-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
               >
                 <IconoEnviarDocs />
+              </button>
+            )}
+            {contacto.id && (
+              <button
+                type="button"
+                onClick={() => descargarVCard(contacto, telefonos)}
+                aria-label="Agregar a contactos (descargar vCard)"
+                title="Agregar a contactos (descargar vCard)"
+                style={{ width: 44, height: 44, borderRadius: 10, border: '0.5px solid var(--ta-border)', background: 'none', color: 'var(--ta-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+              >
+                <IconoDescargarVCard />
               </button>
             )}
           </div>

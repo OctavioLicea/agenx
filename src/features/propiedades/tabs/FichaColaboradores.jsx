@@ -440,7 +440,7 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
               />
 
               {resultados.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
+                <div style={{ marginBottom: 10, maxHeight: 260, overflowY: 'auto' }}>
                   {resultados.map((r) => (
                     <button
                       key={r.id}

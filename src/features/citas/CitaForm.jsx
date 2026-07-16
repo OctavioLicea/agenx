@@ -83,17 +83,18 @@ function portadaDe(propiedad) {
   return data?.publicUrl || null
 }
 
-// Búsqueda combinada: nombre en `contactos`, teléfono en `contacto_telefonos`
-// — mismo patrón (2 queries en paralelo) que InteraccionForm.jsx.
+// Búsqueda combinada: nombre/rol/empresa en `contactos`, teléfono en
+// `contacto_telefonos` — mismo patrón que FichaColaboradores.jsx
+// (Sesión 16: se homologó aquí para no dejarlo inconsistente).
 async function buscarContactos(texto) {
   const like = `%${texto}%`
-  const [porNombre, porTelefono] = await Promise.all([
-    supabase.from('contactos').select('id, nombre, rol_principal').ilike('nombre', like).limit(8),
-    supabase.from('contacto_telefonos').select('telefono, contactos(id, nombre, rol_principal)').ilike('telefono', like).limit(8),
+  const [porCampos, porTelefono] = await Promise.all([
+    supabase.from('contactos').select('id, nombre, rol_principal, empresa').or(`nombre.ilike.${like},rol_principal.ilike.${like},empresa.ilike.${like}`).limit(8),
+    supabase.from('contacto_telefonos').select('telefono, contactos(id, nombre, rol_principal, empresa)').ilike('telefono', like).limit(8),
   ])
 
   const mapa = new Map()
-  ;(porNombre.data || []).forEach((c) => mapa.set(c.id, { ...c, telefonos: [] }))
+  ;(porCampos.data || []).forEach((c) => mapa.set(c.id, { ...c, telefonos: [] }))
   ;(porTelefono.data || []).forEach((row) => {
     const c = row.contactos
     if (!c) return
@@ -209,7 +210,7 @@ function BuscadorContactoConNombre({ contactoBloqueado, onSeleccionar, onQuitar 
           {buscando ? (
             <p style={{ margin: 0, padding: 10, fontSize: 12, color: 'var(--ta-text-muted)', border: '0.5px solid var(--ta-border)', borderRadius: 10 }}>Buscando...</p>
           ) : resultados.length > 0 ? (
-            <div style={{ border: '0.5px solid var(--ta-border)', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ border: '0.5px solid var(--ta-border)', borderRadius: 10, overflow: 'hidden', maxHeight: 260, overflowY: 'auto' }}>
               {resultados.map((c, idx) => {
                 const elegir = () => { onSeleccionar({ id: c.id, nombre: c.nombre }); setTexto(''); setResultados([]) }
                 return (
@@ -313,7 +314,7 @@ function BuscadorPropiedadCita({ propiedadBloqueada, onSeleccionar, onQuitar }) 
         />
       </div>
       {texto.trim() && (
-        <div style={{ marginTop: 6, border: '0.5px solid var(--ta-border)', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ marginTop: 6, border: '0.5px solid var(--ta-border)', borderRadius: 10, overflow: 'hidden', maxHeight: 260, overflowY: 'auto' }}>
           {buscando ? (
             <p style={{ margin: 0, padding: 10, fontSize: 12, color: 'var(--ta-text-muted)' }}>Buscando...</p>
           ) : resultados.length > 0 ? (
