@@ -1,46 +1,37 @@
-// src/features/interacciones/ListadoInteracciones.jsx
-// Motivo: Sprint 3 (Interacciones) — módulo global, pendiente arrastrado
-//   desde Sesión 10 ("Vista de listado propio de Interacciones"). Se
-//   agrega SIN quitar la sección "Interacciones" de ContactoForm.jsx —
-//   decisión de Okta: la sección dentro de la ficha sirve para registrar
-//   rápido sin salir del contacto; este módulo sirve para ver todas las
-//   interacciones sin importar el contacto, filtrables por canal, y para
-//   dar de alta una interacción eligiendo el contacto desde cero (mismo
-//   InteraccionForm.jsx reutilizado, sin contacto/propiedad bloqueados).
-//   Mismo patrón visual que ListadoContactos.jsx: skeleton de carga,
-//   buscador + filtro de chips, estado vacío, FAB de alta.
-//   [Actualización 13 jul 2026, feedback de la primera prueba real]:
-//   (1) miniatura de la propiedad (portada) + avatar de iniciales del
-//   contacto en cada fila; (2) la fila ahora SÍ tiene acción: tocarla
-//   abre InteraccionForm en modo edición (interaccionInicial); tocar el
-//   avatar/nombre del contacto (stopPropagation) abre su ficha en modal
-//   en vez de la interacción — mismo patrón de doble affordance que
-//   FichaColaboradores.jsx (fila abre una cosa, botón anidado abre otra).
-//   [Actualización 13 jul 2026, segunda vuelta de feedback con capturas]:
-//   (1) reacomodo de la fila — fecha ahora junto al avatar (izquierda),
-//   miniatura de propiedad movida al extremo derecho; (2) el canal
-//   (Whatsapp/Llamada/Redes/Otro) sube de chip pequeño a texto
-//   protagonista junto al nombre, mismo nivel visual; (3) selector de
-//   orden (más recientes / contacto / propiedad).
-//   [Actualización 13 jul 2026, tercera vuelta]: filtro opcional por
-//   fecha (Desde/Hasta) — sobre `fecha_hora` (cuándo pasó la interacción),
-//   no sobre `created_at` (cuándo se guardó la fila); es el dato que le
-//   importa a Nydia y ya es editable en el formulario. Mismo patrón que
-//   ListadoContactos.jsx y ListadoPropiedades.jsx.
-// Timestamp: 2026-07-13, 22:25 hrs
+// src/features/citas/ListadoCitas.jsx
+// Motivo: Sprint N (Citas) — módulo global, mismo patrón visual que
+//   ListadoInteracciones.jsx (skeleton de carga, buscador + filtro de
+//   chips, estado vacío, FAB de alta, fila con avatar de contacto +
+//   miniatura de propiedad, click en fila abre modo edición, click en
+//   avatar/nombre abre la ficha del contacto en modal). Diferencias
+//   deliberadas frente a Interacciones: (1) orden por default es
+//   ascendente por fecha_hora ("Próximas primero") en vez de descendente
+//   — Citas es una agenda a futuro, no una bitácora de lo ya pasado; (2)
+//   filtro por chips es por `estado` (programada/realizada/cancelada/
+//   no_asistio), no por canal; (3) siempre hay propiedad (columna NOT
+//   NULL en `visitas`), así que la miniatura de portada no es opcional
+//   como en Interacciones.
+// Timestamp: 2026-07-14, 22:40 hrs
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import InteraccionForm from './InteraccionForm'
+import CitaForm from './CitaForm'
+import CalendarioCitas from './CalendarioCitas'
 import ContactoForm from '../contactos/ContactoForm'
 
-const CANAL_LABEL = { whatsapp: 'Whatsapp', llamada: 'Llamada', redes_sociales: 'Redes', otro: 'Otro' }
+const ESTADO_LABEL = { programada: 'Programada', realizada: 'Realizada', cancelada: 'Cancelada', no_asistio: 'No asistió' }
 
-const coloresCanal = {
-  whatsapp: { bg: '#EAF3DE', text: '#27500A' },
-  llamada: { bg: '#F1EFE8', text: '#5F5E5A' },
-  redes_sociales: { bg: '#FAEEDA', text: '#633806' },
-  otro: { bg: '#F1EFE8', text: '#5F5E5A' },
+// bg/text: badge de estado (chip a la derecha de la fila). ribbon: cintilla
+// de color en el borde izquierdo de la fila — pedido explícito de Okta
+// (Sesión 13, tras ver capturas reales) para que el estado se distinga de
+// un vistazo sin tener que leer el badge. Mismo patrón que la etapa
+// "Perdido" de Procesos comerciales en ContactoForm.jsx (única otra
+// excepción documentada a la regla de "un solo acento funcional").
+const coloresEstado = {
+  programada: { bg: '#EAF3DE', text: '#27500A', ribbon: '#639922' },
+  realizada: { bg: '#DCEAE3', text: '#144D36', ribbon: '#0F6E56' },
+  cancelada: { bg: '#FCEBEB', text: '#791F1F', ribbon: '#E24B4A' },
+  no_asistio: { bg: '#FAEEDA', text: '#633806', ribbon: '#EF9F27' },
 }
 
 function formatearFecha(iso) {
@@ -72,33 +63,34 @@ function portadaDe(propiedad) {
   return data?.publicUrl || null
 }
 
-export default function ListadoInteracciones({ refreshKey = 0 }) {
-  const [interacciones, setInteracciones] = useState([])
+export default function ListadoCitas({ refreshKey = 0 }) {
+  const [citas, setCitas] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
 
+  const [vista, setVista] = useState('lista') // 'lista' | 'calendario'
   const [busqueda, setBusqueda] = useState('')
-  const [filtroCanal, setFiltroCanal] = useState('todos') // 'todos' | whatsapp | llamada | redes_sociales | otro
-  const [orden, setOrden] = useState('fecha') // 'fecha' | 'contacto' | 'propiedad'
+  const [filtroEstado, setFiltroEstado] = useState('todas') // 'todas' | programada | realizada | cancelada | no_asistio
+  const [orden, setOrden] = useState('proximas') // 'proximas' | 'contacto' | 'propiedad'
   const [mostrarFiltroFecha, setMostrarFiltroFecha] = useState(false)
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
   const [mostrarForm, setMostrarForm] = useState(false)
-  const [interaccionModal, setInteraccionModal] = useState(null) // fila completa, modo edición
-  const [contactoModal, setContactoModal] = useState(null) // contacto abierto en modal, desde el avatar/nombre
+  const [citaModal, setCitaModal] = useState(null) // fila completa, modo edición
+  const [contactoModal, setContactoModal] = useState(null)
   const [recargaKey, setRecargaKey] = useState(0)
 
   const cargar = useCallback(() => {
     setCargando(true)
     supabase
-      .from('interacciones')
-      .select('id, canal, direccion, nota, fecha_hora, contactos(id, nombre), propiedades(id, titulo, fotos_propiedad(storage_path, es_portada))')
-      .order('fecha_hora', { ascending: false })
+      .from('visitas')
+      .select('id, estado, nota, fecha_hora, contactos(id, nombre), propiedades(id, titulo, fotos_propiedad(storage_path, es_portada))')
+      .order('fecha_hora', { ascending: true })
       .then(({ data, error: fetchError }) => {
         if (fetchError) {
-          setError(`No se pudieron cargar las interacciones: ${fetchError.message}`)
+          setError(`No se pudieron cargar las citas: ${fetchError.message}`)
         } else {
-          setInteracciones(data || [])
+          setCitas(data || [])
         }
         setCargando(false)
       })
@@ -106,30 +98,26 @@ export default function ListadoInteracciones({ refreshKey = 0 }) {
 
   useEffect(() => { cargar() }, [cargar, refreshKey, recargaKey])
 
-  // Filtro por fecha: sobre `fecha_hora` (cuándo pasó la interacción), no
-  // sobre `created_at` (cuándo se guardó la fila) — es el dato que le
-  // importa a Nydia y ya es editable/visible en el formulario. Rango
-  // Desde/Hasta opcional, mismo patrón que Contactos y Propiedades.
   const filtradas = useMemo(() => {
     const texto = busqueda.trim().toLowerCase()
-    return interacciones.filter((i) => {
-      const coincideCanal = filtroCanal === 'todos' || i.canal === filtroCanal
+    return citas.filter((c) => {
+      const coincideEstado = filtroEstado === 'todas' || c.estado === filtroEstado
       const coincideTexto =
         !texto ||
-        i.contactos?.nombre?.toLowerCase().includes(texto) ||
-        i.propiedades?.titulo?.toLowerCase().includes(texto) ||
-        i.nota?.toLowerCase().includes(texto)
-      const fecha = i.fecha_hora ? new Date(i.fecha_hora) : null
+        c.contactos?.nombre?.toLowerCase().includes(texto) ||
+        c.propiedades?.titulo?.toLowerCase().includes(texto) ||
+        c.nota?.toLowerCase().includes(texto)
+      const fecha = c.fecha_hora ? new Date(c.fecha_hora) : null
       const coincideFecha =
         (!fechaDesde || (fecha && fecha >= new Date(`${fechaDesde}T00:00:00`))) &&
         (!fechaHasta || (fecha && fecha <= new Date(`${fechaHasta}T23:59:59`)))
-      return coincideCanal && coincideTexto && coincideFecha
+      return coincideEstado && coincideTexto && coincideFecha
     })
-  }, [interacciones, busqueda, filtroCanal, fechaDesde, fechaHasta])
+  }, [citas, busqueda, filtroEstado, fechaDesde, fechaHasta])
 
-  // El query ya viene ordenado por fecha desc — 'fecha' no necesita resort.
+  // El query ya viene ordenado por fecha_hora asc — 'proximas' no necesita resort.
   const ordenadas = useMemo(() => {
-    if (orden === 'fecha') return filtradas
+    if (orden === 'proximas') return filtradas
     const copia = [...filtradas]
     if (orden === 'contacto') {
       copia.sort((a, b) => (a.contactos?.nombre || '').localeCompare(b.contactos?.nombre || ''))
@@ -167,40 +155,67 @@ export default function ListadoInteracciones({ refreshKey = 0 }) {
       <div style={{ position: 'relative', width: '100%', maxWidth: 480, height: '100%', overflowY: 'auto', background: 'var(--ta-surface)' }}>
 
         <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--ta-surface)', padding: '12px 16px', borderBottom: '0.5px solid var(--ta-border)' }}>
-          <input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por contacto, propiedad o nota"
-            style={{
-              width: '100%', height: 40, borderRadius: 10, border: '0.5px solid var(--ta-border)',
-              background: 'var(--ta-surface)', color: 'var(--ta-text)',
-              padding: '0 12px', fontSize: 13, boxSizing: 'border-box',
-              fontFamily: 'inherit', outline: 'none', marginBottom: 8,
-            }}
-          />
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {['todos', 'whatsapp', 'llamada', 'redes_sociales', 'otro'].map((c) => (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            {[{ v: 'lista', label: 'Lista' }, { v: 'calendario', label: 'Calendario' }].map((t) => (
               <button
-                key={c}
+                key={t.v}
                 type="button"
-                onClick={() => setFiltroCanal(c)}
+                onClick={() => setVista(t.v)}
                 style={{
-                  fontSize: 11, padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
-                  border: filtroCanal === c ? 'none' : '0.5px solid var(--ta-border)',
-                  background: filtroCanal === c ? 'var(--ta-accent)' : 'var(--ta-bg)',
-                  color: filtroCanal === c ? 'var(--ta-on-accent)' : 'var(--ta-text-muted)',
+                  flex: 1, height: 36, borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                  border: vista === t.v ? 'none' : '0.5px solid var(--ta-border)',
+                  background: vista === t.v ? 'var(--ta-accent)' : 'var(--ta-surface)',
+                  color: vista === t.v ? 'var(--ta-on-accent)' : 'var(--ta-text)',
                 }}
               >
-                {c === 'todos' ? 'Todos' : CANAL_LABEL[c]}
+                {t.label}
               </button>
             ))}
           </div>
+
+          {vista === 'lista' && (
+            <>
+              <input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por contacto, propiedad o nota"
+                style={{
+                  width: '100%', height: 40, borderRadius: 10, border: '0.5px solid var(--ta-border)',
+                  background: 'var(--ta-surface)', color: 'var(--ta-text)',
+                  padding: '0 12px', fontSize: 13, boxSizing: 'border-box',
+                  fontFamily: 'inherit', outline: 'none', marginBottom: 8,
+                }}
+              />
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {['todas', 'programada', 'realizada', 'cancelada', 'no_asistio'].map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => setFiltroEstado(e)}
+                    style={{
+                      fontSize: 11, padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
+                      border: filtroEstado === e ? 'none' : '0.5px solid var(--ta-border)',
+                      background: filtroEstado === e ? 'var(--ta-accent)' : 'var(--ta-bg)',
+                      color: filtroEstado === e ? 'var(--ta-on-accent)' : 'var(--ta-text-muted)',
+                    }}
+                  >
+                    {e === 'todas' ? 'Todas' : ESTADO_LABEL[e]}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
+        {vista === 'calendario' ? (
+          <div style={{ padding: '12px 16px 90px' }}>
+            <CalendarioCitas citas={citas} onSeleccionar={setCitaModal} />
+          </div>
+        ) : (
         <div style={{ padding: '12px 16px 90px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 8 }}>
             <p style={{ margin: 0, fontSize: 11, color: 'var(--ta-text-muted)' }}>
-              {filtradas.length} interacci{filtradas.length === 1 ? 'ón' : 'ones'}
+              {filtradas.length} cita{filtradas.length === 1 ? '' : 's'}
             </p>
             <select
               value={orden}
@@ -211,7 +226,7 @@ export default function ListadoInteracciones({ refreshKey = 0 }) {
                 background: 'var(--ta-surface)', color: 'var(--ta-text-muted)', padding: '5px 6px',
               }}
             >
-              <option value="fecha">Más recientes</option>
+              <option value="proximas">Próximas primero</option>
               <option value="contacto">Contacto (A-Z)</option>
               <option value="propiedad">Propiedad (A-Z)</option>
             </select>
@@ -260,67 +275,64 @@ export default function ListadoInteracciones({ refreshKey = 0 }) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {ordenadas.map((i) => {
-              const colores = coloresCanal[i.canal] || coloresCanal.otro
-              const portada = portadaDe(i.propiedades)
+            {ordenadas.map((c) => {
+              const colores = coloresEstado[c.estado] || coloresEstado.programada
+              const portada = portadaDe(c.propiedades)
               const abrirContacto = (e) => {
                 e.stopPropagation()
-                if (i.contactos) setContactoModal(i.contactos)
+                if (c.contactos) setContactoModal(c.contactos)
               }
               return (
                 <div
-                  key={i.id}
-                  onClick={() => setInteraccionModal(i)}
+                  key={c.id}
+                  onClick={() => setCitaModal(c)}
                   role="button"
                   tabIndex={0}
-                  aria-label={`Editar interacción con ${i.contactos?.nombre || 'contacto sin nombre'}`}
+                  aria-label={`Editar cita con ${c.contactos?.nombre || 'contacto sin nombre'}`}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInteraccionModal(i) }
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCitaModal(c) }
                   }}
-                  style={{ display: 'flex', gap: 10, alignItems: 'flex-start', border: '0.5px solid var(--ta-border)', borderRadius: 12, padding: 10, background: 'var(--ta-surface)', cursor: 'pointer' }}
+                  style={{ display: 'flex', gap: 10, alignItems: 'flex-start', border: '0.5px solid var(--ta-border)', borderLeft: `3px solid ${colores.ribbon}`, borderRadius: 12, padding: 10, background: 'var(--ta-surface)', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0, width: 56 }}>
                     <button
                       type="button"
                       onClick={abrirContacto}
                       onKeyDown={(e) => e.stopPropagation()}
-                      aria-label={`Abrir ficha de ${i.contactos?.nombre || 'contacto sin nombre'}`}
-                      disabled={!i.contactos}
+                      aria-label={`Abrir ficha de ${c.contactos?.nombre || 'contacto sin nombre'}`}
+                      disabled={!c.contactos}
                       style={{
                         width: 36, height: 36, borderRadius: '50%', flexShrink: 0, border: 'none',
                         background: 'var(--ta-accent)', color: 'var(--ta-on-accent)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 13, fontWeight: 500, cursor: i.contactos ? 'pointer' : 'default', padding: 0,
+                        fontSize: 13, fontWeight: 500, cursor: c.contactos ? 'pointer' : 'default', padding: 0,
                       }}
                     >
-                      {iniciales(i.contactos?.nombre)}
+                      {iniciales(c.contactos?.nombre)}
                     </button>
                     <span style={{ fontSize: 9, color: 'var(--ta-text-muted)', textAlign: 'center', lineHeight: 1.25 }}>
-                      {formatearFecha(i.fecha_hora)}
+                      {formatearFecha(c.fecha_hora)}
                     </span>
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
                       <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ta-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {i.contactos?.nombre || 'Sin nombre'}
+                        {c.contactos?.nombre || 'Sin nombre'}
                       </span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: colores.text, flexShrink: 0 }}>
-                        {CANAL_LABEL[i.canal] || i.canal}
+                      <span style={{ fontSize: 11, fontWeight: 600, color: colores.text, background: colores.bg, borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
+                        {ESTADO_LABEL[c.estado] || c.estado}
                       </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                      <span style={{ fontSize: 10, color: 'var(--ta-text-muted)' }}>
-                        {i.direccion === 'entrante' ? 'Entrante' : 'Saliente'}
-                      </span>
-                      {i.propiedades?.titulo && (
+                    <div style={{ marginTop: 4 }}>
+                      {c.propiedades?.titulo && (
                         <span style={{ fontSize: 10, background: 'var(--ta-bg)', color: 'var(--ta-text-muted)', borderRadius: 5, padding: '2px 6px' }}>
-                          {i.propiedades.titulo}
+                          {c.propiedades.titulo}
                         </span>
                       )}
                     </div>
-                    {i.nota && (
-                      <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--ta-text)' }}>{i.nota}</p>
+                    {c.nota && (
+                      <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--ta-text)' }}>{c.nota}</p>
                     )}
                   </div>
 
@@ -335,16 +347,18 @@ export default function ListadoInteracciones({ refreshKey = 0 }) {
 
             {filtradas.length === 0 && (
               <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--ta-text-muted)', padding: '2rem 0' }}>
-                No hay interacciones que coincidan.
+                No hay citas que coincidan.
               </p>
             )}
           </div>
         </div>
+        )}
 
         <button
           type="button"
           onClick={() => setMostrarForm(true)}
-          aria-label="Nueva interacción"
+          aria-label="Agendar visita"
+          title="Agendar visita"
           style={{
             position: 'absolute', bottom: 16, right: 16, width: 52, height: 52, borderRadius: '50%',
             border: 'none',
@@ -357,7 +371,7 @@ export default function ListadoInteracciones({ refreshKey = 0 }) {
       </div>
 
       {mostrarForm && (
-        <InteraccionForm
+        <CitaForm
           onCerrar={() => setMostrarForm(false)}
           onGuardado={() => {
             setMostrarForm(false)
@@ -366,12 +380,12 @@ export default function ListadoInteracciones({ refreshKey = 0 }) {
         />
       )}
 
-      {interaccionModal && (
-        <InteraccionForm
-          interaccionInicial={interaccionModal}
-          onCerrar={() => setInteraccionModal(null)}
+      {citaModal && (
+        <CitaForm
+          citaInicial={citaModal}
+          onCerrar={() => setCitaModal(null)}
           onGuardado={() => {
-            setInteraccionModal(null)
+            setCitaModal(null)
             setRecargaKey((v) => v + 1)
           }}
         />

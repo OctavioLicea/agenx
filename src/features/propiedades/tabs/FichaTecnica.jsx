@@ -72,7 +72,7 @@ function TriToggle({ label, value, onChange }) {
               onClick={() => onChange(active ? null : opt.v)}
               style={{
                 minWidth: 44,
-                height: 32,
+                minHeight: 44,
                 padding: '0 12px',
                 borderRadius: 16,
                 fontSize: 13,
@@ -108,6 +108,7 @@ function ChipGroup({ label, options, value = [], onChange }) {
               type="button"
               onClick={() => toggle(opt.value)}
               style={{
+                minHeight: 40,
                 padding: '8px 14px',
                 borderRadius: 18,
                 fontSize: 13,
@@ -259,7 +260,8 @@ function ExtraRow({ extra, onChange, onEliminar }) {
         type="button"
         onClick={onEliminar}
         aria-label="Eliminar extra"
-        style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', fontSize: 18, cursor: 'pointer', minWidth: 32 }}
+        title="Eliminar extra"
+        style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', fontSize: 18, cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
       >
         ×
       </button>
@@ -338,7 +340,7 @@ function SeccionEquipamiento({ equipamiento, onChange }) {
         <button
           type="button"
           onClick={agregarExtra}
-          style={{ height: 36, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--ta-accent)', color: 'var(--ta-on-accent)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
+          style={{ height: 40, padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--ta-accent)', color: 'var(--ta-on-accent)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
         >
           + Agregar
         </button>
@@ -379,7 +381,7 @@ function SeccionComentarios({ comentarios, onChange }) {
                     type="button"
                     onClick={() => cambiar(idx, 'visible_cliente', opt.v)}
                     style={{
-                      height: 28,
+                      minHeight: 36,
                       padding: '0 10px',
                       borderRadius: 14,
                       fontSize: 11,
@@ -394,7 +396,15 @@ function SeccionComentarios({ comentarios, onChange }) {
                 )
               })}
             </div>
-            <button type="button" onClick={() => eliminar(idx)} aria-label="Eliminar comentario" style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', fontSize: 16, cursor: 'pointer' }}>×</button>
+            <button
+              type="button"
+              onClick={() => eliminar(idx)}
+              aria-label="Eliminar comentario"
+              title="Eliminar comentario"
+              style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', fontSize: 16, cursor: 'pointer', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              ×
+            </button>
           </div>
         </div>
       ))}

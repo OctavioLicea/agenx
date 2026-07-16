@@ -14,6 +14,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useContacto, CONTACTO_VACIO } from './hooks/useContacto'
 import { supabase } from '../../lib/supabaseClient'
 import InteraccionForm from '../interacciones/InteraccionForm'
+import CitaForm from '../citas/CitaForm'
 import EnviarDocumentosBoveda from './EnviarDocumentosBoveda'
 
 const ETAPAS = [
@@ -26,6 +27,11 @@ const ETAPAS = [
 ]
 
 const CANAL_LABEL = { whatsapp: 'Whatsapp', llamada: 'Llamada', redes_sociales: 'Redes', otro: 'Otro' }
+const ESTADO_CITA_LABEL = { programada: 'Programada', realizada: 'Realizada', cancelada: 'Cancelada', no_asistio: 'No asistió' }
+// Mismos colores de cintilla que ListadoCitas.jsx — duplicado a propósito
+// (componentes locales por archivo, convención ya establecida en el resto
+// del proyecto).
+const RIBBON_CITA = { programada: '#639922', realizada: '#0F6E56', cancelada: '#E24B4A', no_asistio: '#EF9F27' }
 
 function formatearFecha(iso) {
   if (!iso) return ''
@@ -80,14 +86,18 @@ function IconoCorreo() {
   )
 }
 
-// Ícono de "enviar documentos" — sobre + flecha, para diferenciarlo del
-// mailto simple (IconoCorreo) que solo abre el correo en blanco.
+// Ícono de "enviar documentos" — documento con esquina doblada + líneas de
+// movimiento a la izquierda, para diferenciarlo del mailto simple
+// (IconoCorreo, que es solo un sobre). Referencia visual pedida por Okta
+// (Sesión 13): un ícono de "archivo enviándose", no de correo.
 function IconoEnviarDocs() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="m2 7 10 6 10-6" />
-      <path d="M22 2 12 13" />
+      <path d="M1 8h3" />
+      <path d="M0.5 12h4" />
+      <path d="M1 16h3" />
+      <path d="M16.5 2H8a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L16.5 2z" />
+      <path d="M16 2v6h6" />
     </svg>
   )
 }
@@ -386,6 +396,13 @@ export default function ContactoForm({ contactoInicial, onGuardado }) {
   const [cargandoInteracciones, setCargandoInteracciones] = useState(true)
   const [mostrarFormInteraccion, setMostrarFormInteraccion] = useState(false)
 
+  // Citas — lista + modal de alta (Sprint N, Sesión 13). Mismo patrón que
+  // Interacciones arriba, tabla `visitas`.
+  const [citas, setCitas] = useState([])
+  const [cargandoCitas, setCargandoCitas] = useState(true)
+  const [mostrarFormCita, setMostrarFormCita] = useState(false)
+  const [citaModal, setCitaModal] = useState(null) // fila completa, modo edición
+
   // Enviar documentos de la Bóveda por correo — pedido de Nydia (vía
   // Okta). Ver EnviarDocumentosBoveda.jsx para el flujo completo.
   const [mostrarEnviarDocumentos, setMostrarEnviarDocumentos] = useState(false)
@@ -522,11 +539,27 @@ export default function ContactoForm({ contactoInicial, onGuardado }) {
       })
   }
 
+  const cargarCitas = () => {
+    if (!contacto.id) { setCargandoCitas(false); return }
+    setCargandoCitas(true)
+    supabase
+      .from('visitas')
+      .select('id, estado, nota, fecha_hora, propiedades(id, titulo)')
+      .eq('contacto_id', contacto.id)
+      .order('fecha_hora', { ascending: true })
+      .then(({ data, error: fetchError }) => {
+        if (fetchError) console.error('Error al cargar citas:', fetchError.message)
+        setCitas(data || [])
+        setCargandoCitas(false)
+      })
+  }
+
   useEffect(() => {
     cargarPropiedadesAsociadas()
     cargarProcesos()
     cargarTelefonos()
     cargarInteracciones()
+    cargarCitas()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacto.id])
 
@@ -645,6 +678,7 @@ export default function ContactoForm({ contactoInicial, onGuardado }) {
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Abrir WhatsApp"
+                  title="Abrir WhatsApp"
                   style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--ta-accent)', color: 'var(--ta-on-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}
                 >
                   <IconoWhatsApp />
@@ -652,6 +686,7 @@ export default function ContactoForm({ contactoInicial, onGuardado }) {
                 <a
                   href={`tel:${telefonoLimpio}`}
                   aria-label="Llamar"
+                  title="Llamar"
                   style={{ width: 44, height: 44, borderRadius: 10, border: '0.5px solid var(--ta-border)', color: 'var(--ta-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}
                 >
                   <IconoTelefono />
@@ -662,6 +697,7 @@ export default function ContactoForm({ contactoInicial, onGuardado }) {
               <a
                 href={`mailto:${contacto.correo.trim()}`}
                 aria-label="Enviar correo"
+                title="Enviar correo"
                 style={{ width: 44, height: 44, borderRadius: 10, border: '0.5px solid var(--ta-border)', color: 'var(--ta-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}
               >
                 <IconoCorreo />
@@ -672,6 +708,7 @@ export default function ContactoForm({ contactoInicial, onGuardado }) {
                 type="button"
                 onClick={() => setMostrarEnviarDocumentos(true)}
                 aria-label="Enviar documentos de la bóveda"
+                title="Enviar documentos de la bóveda"
                 style={{ width: 44, height: 44, borderRadius: 10, border: '0.5px solid var(--ta-border)', background: 'none', color: 'var(--ta-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
               >
                 <IconoEnviarDocs />
@@ -797,6 +834,61 @@ export default function ContactoForm({ contactoInicial, onGuardado }) {
             </button>
           </div>
 
+          {/* Citas — de `visitas` (Sprint N, Sesión 13). A diferencia de
+              Interacciones, aquí la propiedad es obligatoria (columna NOT
+              NULL) y el contacto necesita nombre (trigger de BD) — por
+              eso no hay alta rápida desde aquí sin nombre. */}
+          <div style={divisorSeccion}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <p style={encabezadoSeccion}>Citas</p>
+              {!cargandoCitas && <span style={{ fontSize: 11, color: 'var(--ta-text-muted)' }}>{citas.length}</span>}
+            </div>
+
+            {cargandoCitas ? (
+              <p style={{ fontSize: 13, color: 'var(--ta-text-muted)' }}>Cargando...</p>
+            ) : citas.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--ta-text-muted)', marginBottom: 10 }}>
+                {contacto.id ? 'Sin citas todavía.' : 'Guarda el contacto para poder agendar citas.'}
+              </p>
+            ) : (
+              <div style={{ border: '0.5px solid var(--ta-border)', borderRadius: 10, overflow: 'hidden', marginBottom: 10 }}>
+                {citas.map((c, idx) => (
+                  <div
+                    key={c.id}
+                    onClick={() => setCitaModal(c)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCitaModal(c) } }}
+                    style={{ padding: '10px 12px 10px 10px', borderTop: idx === 0 ? 'none' : '0.5px solid var(--ta-border)', borderLeft: `3px solid ${RIBBON_CITA[c.estado] || RIBBON_CITA.programada}`, cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 13, color: 'var(--ta-text)' }}>{c.propiedades?.titulo || 'Sin propiedad'}</span>
+                      <span style={{ fontSize: 11, color: 'var(--ta-text-muted)' }}>{formatearFecha(c.fecha_hora)}</span>
+                    </div>
+                    <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ta-text-muted)' }}>{ESTADO_CITA_LABEL[c.estado] || c.estado}</p>
+                    {c.nota && (
+                      <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ta-text)' }}>{c.nota}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setMostrarFormCita(true)}
+              disabled={!contacto.id}
+              style={{
+                width: '100%', height: 40, borderRadius: 10,
+                border: '0.5px dashed var(--ta-detail)', background: 'none',
+                color: 'var(--ta-text-muted)', fontSize: 13,
+                cursor: contacto.id ? 'pointer' : 'default', opacity: contacto.id ? 1 : 0.5,
+              }}
+            >
+              + Agendar visita
+            </button>
+          </div>
+
           {/* Propiedades asociadas — de propiedad_colaboradores. TODOS los
               roles (servicio y negocio). Nunca mezclar con procesos_comerciales.
               Botón "Quitar" borra solo la relación (propiedad_colaboradores),
@@ -890,4 +982,76 @@ export default function ContactoForm({ contactoInicial, onGuardado }) {
                 ))}
               </div>
             ) : (
-              <p style=
+              <p style={{ fontSize: 13, color: 'var(--ta-text-muted)', marginBottom: 10 }}>
+                {contacto.id ? 'Sin procesos comerciales todavía.' : 'Guarda el contacto para poder agregar procesos comerciales.'}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={agregarProceso}
+              disabled={!contacto.id}
+              style={{
+                width: '100%', height: 40, borderRadius: 10,
+                border: '0.5px dashed var(--ta-detail)', background: 'none',
+                color: 'var(--ta-text-muted)', fontSize: 13,
+                cursor: contacto.id ? 'pointer' : 'default', opacity: contacto.id ? 1 : 0.5,
+              }}
+            >
+              + Agregar proceso comercial
+            </button>
+          </div>
+
+          {error && (
+            <p style={{ color: '#993C1D', fontSize: 13, marginTop: '1rem' }}>Error: {error}</p>
+          )}
+        </div>
+      </div>
+
+      {mostrarFormInteraccion && (
+        <InteraccionForm
+          contactoId={contacto.id}
+          contactoNombre={contacto.nombre}
+          onCerrar={() => setMostrarFormInteraccion(false)}
+          onGuardado={() => {
+            setMostrarFormInteraccion(false)
+            cargarInteracciones()
+          }}
+        />
+      )}
+
+      {mostrarFormCita && (
+        <CitaForm
+          contactoId={contacto.id}
+          contactoNombre={contacto.nombre}
+          onCerrar={() => setMostrarFormCita(false)}
+          onGuardado={() => {
+            setMostrarFormCita(false)
+            cargarCitas()
+          }}
+        />
+      )}
+
+      {citaModal && (
+        <CitaForm
+          citaInicial={citaModal}
+          contactoId={contacto.id}
+          contactoNombre={contacto.nombre}
+          onCerrar={() => setCitaModal(null)}
+          onGuardado={() => {
+            setCitaModal(null)
+            cargarCitas()
+          }}
+        />
+      )}
+
+      {mostrarEnviarDocumentos && (
+        <EnviarDocumentosBoveda
+          contacto={contacto}
+          onCerrar={() => setMostrarEnviarDocumentos(false)}
+          onActualizarCorreo={(v) => actualizar({ correo: v })}
+        />
+      )}
+    </div>
+  )
+}

@@ -8,7 +8,16 @@
 > sueltos anteriores (Sesiones 2 a 9) — esos quedan como archivo
 > histórico, no se vuelven a tocar.
 >
-> Última actualización: Sesión 12, 14 de julio 2026.
+> Última actualización: Sesión 14, 14 de julio 2026 (fixes de Citas/Import, rendimiento).
+
+---
+
+## 🐌 Rendimiento — problema activo, reportado por Okta (Sesión 14)
+
+- [ ] **La app se siente muy lenta al desplegar cada forma o listado** — reportado en general (no solo un módulo puntual), probando con un volumen de datos mucho mayor al habitual (import de 5427 contactos). Esta sesión se corrigieron dos causas concretas encontradas (ver abajo), pero el reporte fue sobre la app en general — falta revisar el resto de listados/forms (Propiedades, Interacciones, Citas, fichas) con volumen real para confirmar si comparten el mismo patrón o si hay una causa distinta todavía sin identificar. **No dar por cerrado solo con los dos fixes de abajo.**
+- [x] **Causa 1 encontrada y corregida — import de contactos secuencial**: `ImportarContactos.jsx` hacía un INSERT por contacto MÁS otro INSERT por cada teléfono, uno a la vez, esperando cada respuesta de red antes de seguir. Con 5427 filas eso eran miles de round-trips secuenciales — "43 de 5427" a ese ritmo hubiera tardado horas. Reescrito a inserts por lote de 300 (`TAMANO_LOTE`); el id de cada contacto se genera en el cliente (`crypto.randomUUID()`) antes de insertar para ligar los teléfonos del lote sin depender del orden de respuesta de Postgres. Reduce miles de requests a un puñado.
+- [x] **Causa 2 encontrada y corregida — `ListadoContactos.jsx` renderizaba todo de golpe**: con miles de contactos cargados, se pintaban todas las tarjetas en un solo paint (miles de nodos de DOM). Se agregó paginación en cliente ("Mostrar 100 más"), la búsqueda/filtros siguen operando sobre todos los contactos ya cargados en memoria (no se paginó el query, solo el render).
+- [ ] Confirmar con Okta si el número real de contactos de Nydia es ~5427 o si ese conteo salió inflado por algo del CSV (la sesión de importación original hablaba de ~1000). No bloquea los fixes de arriba, pero cambia qué tan urgente es seguir optimizando para ese volumen.
 
 ---
 
@@ -37,7 +46,7 @@
 - [x] Botón "Quitar" colaborador, tarjeta de colaborador clicable → abre ficha de contacto como modal, ícono de correo (mailto) por colaborador (Sesión 9).
 - [x] Descripción (columna real, no jsonb) — alimenta el PDF exportado.
 - [ ] Ficha técnica: Historial y Situación fiscal y legal — siguen esperando feedback de Nydia como experta de dominio.
-- [ ] Homologar accesibilidad (foco, touch targets 44px) en Ficha técnica y Colaboradores.
+- [x] **Homologar accesibilidad (touch targets 44px) en Ficha técnica y Colaboradores** (Sesión 13): mismo criterio ya usado en Contactos (Sesión 11) — botones de ícono único (eliminar extra/comentario, correo/quitar colaborador) suben a 44×44; chips y toggles densos (Sí/No, esquemas de pago, roles) suben a 40px mínimo; botones "+ Agregar" quedan en 40px, igual que "+ Agregar teléfono" en ContactoForm.jsx. El anillo de foco global ya cubre estos controles desde Sesión 11, no requirió cambio.
 - [x] **Ordenar `ListadoPropiedades.jsx`** (Sesión 11): selector Recientes/Título (A-Z)/Precio + filtro opcional por fecha de captación (`created_at`, Desde/Hasta), aplicado tanto en vista mapa (sheet) como grid — los pines numerados y las tarjetas comparten índice, se ordena antes de derivar ubicaciones.
 - [x] **Fix: filtro de `ListadoPropiedades.jsx` con texto invisible** (Sesión 11, más tarde): el input de búsqueda se veía blanco sobre blanco. Causa raíz: `src/index.css` (boilerplate de Vite sin relación con el sistema `--ta-*`) declaraba `color-scheme: light dark`, y el navegador aplica texto claro nativo a inputs sin `color` explícito cuando el SO/navegador está en modo oscuro. Corregido a `color-scheme: light` (la app no tiene modo oscuro) + `color: var(--ta-text)` explícito en el input como refuerzo.
 
@@ -57,6 +66,11 @@
 - [x] **Ordenar y filtrar por fecha en `ListadoContactos.jsx`** (Sesión 11): selector Más recientes/Nombre (A-Z)/Empresa (A-Z) + filtro opcional por fecha de creación (`created_at`, Desde/Hasta) — se agregó `created_at` al select, antes no venía.
 - [x] **Eliminar contactos** (Sesión 11): botón de basura por tarjeta en `ListadoContactos.jsx`, `window.confirm()` (mismo patrón que el resto de la app, sin modal custom). Se verificaron los FK de `contactos` en Supabase antes de construir: TODAS las tablas hijas (`interacciones`, `contacto_telefonos`, `visitas`, `contacto_propiedades`, `propiedad_colaboradores`, `procesos_comerciales`) tienen `ON DELETE CASCADE` — el confirm() advierte explícitamente cuántas interacciones/propiedades asociadas se van a borrar junto con el contacto, usando los contadores que la fila ya traía.
 - [x] **Vaciar contactos** (Sesión 11, más tarde): botón "Vaciar contactos" junto a "Importar contactos" en `ListadoContactos.jsx` — borrado masivo de TODOS los contactos del usuario (mismo cascade que "Eliminar contactos" de arriba, aplicado uno por uno en lotes de 200 ids). Pedido explícito de Okta: en vez de `window.confirm()`, modal propio que exige escribir la palabra **"Vaciar"** para habilitar el botón de confirmación (patrón "escribe para confirmar", como GitHub/Supabase para borrados masivos).
+- [x] **Campo "Notas" en el importador** (Sesión 14): agregado al paso de mapeo de `ImportarContactos.jsx`, mismo patrón que "Rol principal" — auto-detección de columna (nota/note/comentario/observación), soporte del campo `NOTE` estándar de vCard, se guarda en la columna real `nota_sin_propiedad` (la misma que usa la sección "Nota" de `ContactoForm.jsx`).
+- [x] **Manejo de archivos .xlsx en el importador** (Sesión 14): Okta preguntó por soporte directo de Excel. Decisión tomada explícitamente: NO agregar SheetJS/xlsx como dependencia nueva — el importador ya lee CSV, que es justo lo que produce "Guardar como > CSV" en Excel. En vez de dejar que un .xlsx suba y falle con un error críptico, se detecta la extensión y se muestra un mensaje guiando a exportar CSV primero (el `accept` del input se amplió para permitir seleccionarlos y que el mensaje se alcance a ver).
+- [x] **Fix de rendimiento del import — inserts por lote** (Sesión 14): ver detalle en la sección "🐌 Rendimiento" arriba.
+- [x] **Paginación en `ListadoContactos.jsx`** (Sesión 14): ver detalle en la sección "🐌 Rendimiento" arriba.
+- [ ] **Buscar contacto por rol o compañía, no solo nombre/teléfono** (pedido por Okta, Sesión 14): el buscador de contacto usado al registrar una interacción (`InteraccionForm.jsx`, función `buscarContactos`) y al asignar un colaborador (`FichaColaboradores.jsx`, función `buscarContactos`) solo hace `ilike` contra `contactos.nombre` y `contacto_telefonos.telefono`. Falta agregar `rol_principal` y `empresa` a la búsqueda en ambos. `CitaForm.jsx` tiene la misma función/limitación (no la pidió Okta explícitamente esta vez, pero comparte el mismo patrón — revisar si aplica el mismo fix ahí para no dejarlo inconsistente).
 
 **⚠️ Incidente de migración (Sesión 10, resuelto)**: la migración original de `contacto_telefonos`/`interacciones` se corrió por partes, y las dos tablas nunca llegaron a crearse (el paso de `insert...select` que copiaba los teléfonos existentes falló silenciosamente al no existir la tabla destino). Después se corrió `drop column telefono` de todas formas, **perdiendo los números de teléfono de los contactos que existían hasta ese momento** (confirmado por Okta como datos de prueba, sin necesidad de restaurar backup). Se repararon ambas tablas con un script de un solo bloque + verificación inmediata vía `information_schema` (3 relaciones FK confirmadas). Contactos y Colaboradores funcionando de nuevo. **Lección aplicada**: ver "Principios vigentes" abajo.
 
@@ -71,13 +85,30 @@
 - [x] **Modo edición en `InteraccionForm.jsx`** (Sesión 11): prop `interaccionInicial` — reutiliza el UPDATE que `useInteraccion()` ya soportaba, solo faltaba poder arrancar precargado.
 - [x] **Fixes de UX de la primera prueba real** (Sesión 11): (1) botón "Guardar" se quedaba deshabilitado en silencio si faltaba contacto o canal — se agregó aviso visible (causa real de por qué la tabla llevaba 0 filas hasta esta sesión); (2) `datetime-local` reemplazado por dos inputs nativos (fecha + hora) con íconos de calendario/reloj superpuestos — los inputs nativos no siempre traen su propio ícono, sin eso no había señal de que fueran controles tocables; (3) miniatura de propiedad agregada a `BuscadorPropiedad` (resultados y chip bloqueado).
 - [ ] "Tareas" asociadas a una interacción — feature formal tipo to-do, **diferida a Fase 2**, sin schema reservado todavía.
-- **Decisión abierta**: ¿Interacciones y Citas/Visitas son un mismo módulo o separados?
 - [x] **Probado de punta a punta con datos reales** (Sesión 11, confirmado con capturas de Okta) — ya no es un pendiente.
 - [x] **Ícono del menú cambiado a teléfono** (Sesión 11, `TopBar.jsx`): antes era un globo de chat, no correspondía. Se decidió explícitamente NO renombrar el módulo a "Llamadas" — se queda "Interacciones" porque también cubre WhatsApp, redes sociales y otro, no solo llamadas.
 
-## Sprint N — Citas: NO INICIADO
+## Sprint N — Citas: CONSTRUIDO Y PROBADO (Sesión 13) — falta probar solo el calendario
 
-- [ ] Sin diseñar. Depende de la decisión de fusión/separación con Interacciones.
+- [x] **Decisión tomada: módulo separado de Interacciones** (Sesión 13) — Interacciones sigue siendo bitácora de comunicación ya sucedida; Citas es agenda a futuro, con estado y propiedad siempre obligatoria. La tabla `visitas` ya existía en Supabase desde Sesión 10 (nunca se había usado) — se confirmó su schema real antes de construir en vez de asumir.
+- [x] `useCita.js`, `CitaForm.jsx`, `ListadoCitas.jsx` construidos de punta a punta, mismo patrón que Interacciones (Sesión 11): formulario único invocable desde cualquier lugar, listado global filtrable/ordenable, FAB de alta, modal de edición al tocar una fila.
+- [x] Puntos de entrada: sección "Citas" en `ContactoForm.jsx` (junto a Interacciones), botón "+ Agendar visita" en `FichaColaboradores.jsx` (propiedad ya bloqueada), nuevo módulo raíz en el menú de `TopBar.jsx`/`App.jsx` (cuarto ícono, calendario).
+- [x] **Estados reales confirmados contra Supabase antes de construir la UI**: `programada`, `realizada`, `cancelada`, `no_asistio` — **no existe `confirmada`**, se descartó de los chips de estado en `CitaForm.jsx`/`ListadoCitas.jsx`.
+- [x] Alta rápida de contacto dentro de `CitaForm.jsx` siempre pide nombre explícito (nunca solo teléfono como en Interacciones) — hay un trigger de BD (`trg_visitas_requiere_nombre`) que bloquea el INSERT si el contacto no tiene nombre.
+- [x] **Probado con datos reales por Okta** (Sesión 13, segunda vuelta) — capturas confirmaron que el listado carga y se ve bien.
+- [x] **Cintilla de color por estado** (Sesión 13, feedback tras probar): borde izquierdo de 3px con color por estado (verde programada, teal realizada, rojo cancelada, ámbar no_asistio) en `ListadoCitas.jsx` y en la sección "Citas" de `ContactoForm.jsx`. Mismo patrón ya usado en la etapa "Perdido" de Procesos comerciales — única otra excepción documentada a "un solo acento funcional".
+- [x] **Vista de calendario (`CalendarioCitas.jsx`)** (Sesión 13): toggle Lista/Calendario arriba de `ListadoCitas.jsx`. Muestra 3 días a la vez (ayer/hoy/mañana relativo a un "día de enfoque" elegible con `<input type="date">` + flechas prev/siguiente), enfocado en horario regular 9:00–19:00. Citas fuera de ese rango se muestran como chips arriba de cada columna en vez de romper la rejilla. Reutiliza el arreglo `citas` que `ListadoCitas.jsx` ya carga completo — sin query nueva (dataset chico, 3-4 propiedades activas).
+- [ ] Sin recordatorios/notificaciones — fuera de alcance por ahora (mismo criterio YAGNI que el resto del proyecto).
+- [x] **Fix: rejilla del calendario "en blanco" + fecha de enfoque poco visible** (Sesión 14, tras primera prueba visual de Okta): las líneas de hora a 0.5px con `--ta-border` casi no tenían contraste contra `--ta-surface`, se veían vacías. `CalendarioCitas.jsx` reconstruido con CSS Grid (antes cada columna alineaba sola — si un día tenía chips "fuera de horario" y otro no, las rejillas quedaban desalineadas entre columnas); columna de etiquetas de hora (9:00–18:00) a la izquierda; líneas con `color-mix` sobre `--ta-text` (contraste garantizado); zebra sutil por hora; columna de "hoy" con tinte de acento + línea de "ahora" en vivo. Fecha de enfoque: encabezado grande en negritas/acento arriba del selector + el input de fecha también centrado y en negritas.
+- [x] **Filtro por propiedad y por contacto en el calendario** (Sesión 14, pedido de Okta): dos selects en `CalendarioCitas.jsx`, opciones derivadas de las citas ya cargadas (sin query nueva), botón "Limpiar" cuando hay filtro activo.
+- [x] **Fix: contacto no se podía cambiar al editar una cita** (Sesión 14, reportado por Okta con captura): `CitaForm.jsx` — Propiedad ya tenía botón "✕" para desbloquear y buscar otra, pero Contacto nunca lo tuvo (quedaba permanentemente fijo en modo edición). Se agregó el mismo patrón `onQuitar` a `BuscadorContactoConNombre`.
+- [ ] Probar la vista de calendario con datos reales tras los cambios de Sesión 14 (grid, filtros) — todavía sin confirmar con capturas de Okta.
+
+## 📧 Envío por correo (mailto) — decisión de arquitectura confirmada (Sesión 13)
+
+- [x] **Decisión: se queda con `mailto:`, sin servicio de correo nuevo.** Dos limitaciones reales detectadas al probar con datos reales: (1) las URLs firmadas de Supabase se ven feas en el cuerpo del correo — no se pueden acortar sin agregar infraestructura (Edge Function de redirección); (2) el remitente ("De:") lo decide la app de correo predeterminada de quien abre el link, no el código — es una limitación de `mailto:` en sí, no de esta app. Okta eligió explícitamente NO agregar un servicio de correo transaccional (Resend/SendGrid) para resolver esto, manteniendo el principio de cero costo/infra del proyecto.
+- [x] **Mitigación aplicada**: aviso visible en `EnviarDocumentosBoveda.jsx` bajo el botón "Abrir correo" explicando que el remitente depende de la app de correo predeterminada del dispositivo, no de TuAsesor.
+- [ ] **Acción para Nydia (no es código)**: configurar su app de correo predeterminada en el celular/computadora para que la cuenta "De:" ya sea su correo de negocio.
 
 ---
 
@@ -85,9 +116,9 @@
 
 - [x] `ExportaFicha.jsx`, generación client-side con `@react-pdf/renderer`, checkboxes por sección, Web Share API + fallback descarga, archivado automático en el Vault.
 - [x] Marca del asesor: nombre comercial tipo masthead, teléfono clicable, logo como marca de agua (420×420px, 14% opacidad), footer con isotipo.
-- [ ] Confirmar que Okta guardó el isotipo elegido en `src/assets/logo-isotipo-tuasesor.png`.
-- [ ] Confirmar que la marca de agua ya se ve bien con el último ajuste (pendiente de confirmación de Okta desde Sesión 9).
-- [ ] Confirmar `@react-pdf/renderer` instalado (`npm install @react-pdf/renderer`).
+- [x] Isotipo guardado en `src/assets/logo-isotipo-tuasesor.png` — confirmado por Okta (Sesión 13).
+- [x] Marca de agua del PDF se ve bien con el ajuste actual — confirmado por Okta (Sesión 13). Pendiente desde Sesión 9, cerrado.
+- [x] `@react-pdf/renderer` instalado — confirmado por Okta (Sesión 13, `npm install` corrido, "up to date", 0 vulnerabilidades).
 
 ## 🔒 Bóveda de documentos (Vault) — CERRADA (pantalla, envío y PIN — Sesión 11)
 
@@ -96,6 +127,7 @@
 - [x] **Botón "Enviar a cliente" — construido** (Sesión 11, `EnviarDocumentosBoveda.jsx`, entrada desde `ContactoForm.jsx`): reemplaza la decisión anterior de "100% uso interno". Flujo: elegir/actualizar el correo del contacto → checkbox "Incluir documentos de una propiedad" → buscador de propiedad → checklist de sus documentos en la Bóveda (nada preseleccionado, son documentos privados) → arma un `mailto:` con links de descarga firmados que **vencen en 24 horas** (decisión de Okta). No son adjuntos reales (mailto no lo permite), son links con vigencia.
 - [x] **PIN de seguridad de la Bóveda + "olvidé mi PIN"** (Sesión 11): configurable en Perfil > Seguridad (`PerfilForm.jsx`) — PIN de 4 dígitos guardado hasheado (SHA-256 + salt, `src/lib/bovedaPin.js`) en `tuasesor.perfiles.boveda_pin_hash`/`boveda_pin_salt` (migración aplicada). `FichaDocumentos.jsx` pide el PIN antes de mostrar nada si está configurado (desbloqueo dura la sesión del navegador, vía `sessionStorage`). "Olvidé mi PIN": código de 6 dígitos generado EN MEMORIA (nunca se guarda en BD), enviado por `mailto:` al propio correo de Nydia — mismo patrón mailto que ya usa el resto de la app, sin servicio de correo nuevo ni costo adicional.
 - [ ] **Pendiente de probar con Nydia** (ver abajo): tanto el envío de documentos como el PIN dependen de `mailto:`/`sessionStorage`, que se comportan distinto en el celular real y en producción vs. local.
+- [x] **Tooltip + ícono del botón "Enviar documentos" en `ContactoForm.jsx`** (Sesión 13): el botón solo tenía `aria-label` (invisible para usuarios videntes) y su ícono (sobre + flecha) era casi indistinguible del ícono de correo (mailto) junto a él — Okta reportó que no había forma de saber para qué servía. Se agregó `title` (tooltip nativo al pasar el mouse) a los 4 botones de acción rápida del header (WhatsApp, Llamar, Correo, Enviar documentos), y se rediseñó `IconoEnviarDocs` a un documento con esquina doblada + líneas de movimiento (referencia visual de Okta), distinto del sobre simple.
 
 ## 👤 Ficha de usuario (Mi perfil) — CERRADO
 
@@ -124,10 +156,11 @@
 
 ## ❓ Decisiones abiertas
 
-- Fusión o separación de Interacciones y Citas/Visitas (Sprint 3 vs Sprint N).
+- ~~Fusión o separación de Interacciones y Citas/Visitas (Sprint 3 vs Sprint N).~~ **Resuelto (Sesión 13)**: separados. Ver sección "Sprint N — Citas" arriba.
 - ~~¿Documentos de la Bóveda también para contactos, o se queda permanentemente solo en propiedades?~~ **Resuelto parcialmente (Sesión 11)**: los documentos se siguen subiendo únicamente por propiedad (`documentos_propiedad`), pero ahora SÍ se pueden enviar a un contacto por correo desde la ficha del contacto (`EnviarDocumentosBoveda.jsx`) — no se duplican ni se suben documentos propios de un contacto.
 - Uso futuro del ícono de cuadros del logo como guiño visual en las fichas.
 - ~~**¿`contacto_propiedades` sigue vigente?**~~ **Resuelto (Sesión 11)**: sí existe — confirmada vía `information_schema` al revisar los FK de `contactos` antes de construir "eliminar contacto" (tiene `contacto_id` con `ON DELETE CASCADE`). Sigue sin evidencia de tener una pantalla propia que la use; queda pendiente confirmar con Okta para qué se está usando hoy en la práctica.
+- **MCP de Supabase conectado a este chat apunta a otro proyecto** (detectado Sesión 14): al llamar `list_projects`/`list_tables` para confirmar un detalle de schema, el único proyecto visible fue "NYOWedding" (tablas `guests`, `wishes`, `tracker_items`, etc. — nada que ver con TuAsesor). El proyecto real de TuAsesor (`contactos`, `visitas`, `propiedades`...) no apareció. No bloqueó el trabajo de esta sesión (se siguió trabajando a partir del código ya existente, sin necesitar confirmar schema nuevo), pero si una sesión futura necesita verificar schema real vía MCP (como se hizo en Sesión 13 para `visitas`), primero hay que confirmar con Okta que el conector de Supabase esté apuntando al proyecto correcto.
 - **Proyecto de Claude.ai (conocimiento importado) desactualizado desde la Sesión 8** (6 de julio) — no refleja la migración de documentación a `docs/` decidida en Sesión 10 ni nada de lo construido en Sesiones 9-11. Detectado en Sesión 11 al pedir un recap: se leyó primero el conocimiento de Claude.ai (única fuente disponible al inicio de esa sesión) antes de confirmar que `docs/` en el repo era la fuente vigente. Pendiente decidir: ¿se sigue actualizando ese proyecto en paralelo, o se marca explícitamente como archivo histórico congelado en Sesión 8?
 
 ---

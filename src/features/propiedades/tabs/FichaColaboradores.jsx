@@ -21,6 +21,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
 import ContactoForm from '../../contactos/ContactoForm'
 import InteraccionForm from '../../interacciones/InteraccionForm'
+import CitaForm from '../../citas/CitaForm'
 
 const ROLES = [
   { value: 'vendedor', label: 'Vendedor' },
@@ -174,6 +175,10 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
   // Pendiente arrastrado desde Sesión 10 ("conectar punto de entrada
   // desde FichaColaboradores.jsx").
   const [mostrarFormInteraccion, setMostrarFormInteraccion] = useState(false)
+
+  // Modal de alta de cita con la propiedad ya bloqueada — mismo CitaForm.jsx
+  // reutilizado de Contactos, sin duplicar lógica (Sprint N, Sesión 13).
+  const [mostrarFormCita, setMostrarFormCita] = useState(false)
 
   const cargarColaboradores = useCallback(async () => {
     setCargando(true)
@@ -334,7 +339,8 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
                     href={`mailto:${c.contactos.correo}`}
                     onClick={(e) => e.stopPropagation()}
                     aria-label={`Enviar correo a ${c.contactos?.nombre || 'este colaborador'}`}
-                    style={{ width: 32, height: 32, flexShrink: 0, border: 'none', borderRadius: 8, background: 'var(--ta-bg)', color: 'var(--ta-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+                    title={`Enviar correo a ${c.contactos?.nombre || 'este colaborador'}`}
+                    style={{ width: 44, height: 44, flexShrink: 0, border: 'none', borderRadius: 8, background: 'var(--ta-bg)', color: 'var(--ta-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
                   >
                     <IconoCorreo />
                   </a>
@@ -343,7 +349,8 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
                   type="button"
                   onClick={(e) => { e.stopPropagation(); quitarColaborador(c) }}
                   aria-label={`Quitar a ${c.contactos?.nombre || telefono || 'este colaborador'}`}
-                  style={{ width: 32, height: 32, flexShrink: 0, border: 'none', borderRadius: 8, background: 'var(--ta-bg)', color: 'var(--ta-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                  title={`Quitar a ${c.contactos?.nombre || telefono || 'este colaborador'}`}
+                  style={{ width: 44, height: 44, flexShrink: 0, border: 'none', borderRadius: 8, background: 'var(--ta-bg)', color: 'var(--ta-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                 >
                   <IconoQuitar />
                 </button>
@@ -373,17 +380,30 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
       ) : null}
 
       {!mostrarForm && (
-        <button
-          type="button"
-          onClick={() => setMostrarFormInteraccion(true)}
-          style={{
-            width: '100%', height: 40, borderRadius: 10, marginTop: 8,
-            border: '0.5px dashed var(--ta-detail)', background: 'none',
-            color: 'var(--ta-text-muted)', fontSize: 13, cursor: 'pointer',
-          }}
-        >
-          + Registrar interacción
-        </button>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <button
+            type="button"
+            onClick={() => setMostrarFormInteraccion(true)}
+            style={{
+              flex: 1, height: 40, borderRadius: 10,
+              border: '0.5px dashed var(--ta-detail)', background: 'none',
+              color: 'var(--ta-text-muted)', fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            + Registrar interacción
+          </button>
+          <button
+            type="button"
+            onClick={() => setMostrarFormCita(true)}
+            style={{
+              flex: 1, height: 40, borderRadius: 10,
+              border: '0.5px dashed var(--ta-detail)', background: 'none',
+              color: 'var(--ta-text-muted)', fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            + Agendar visita
+          </button>
+        </div>
       )}
 
       {mostrarForm && (
@@ -429,6 +449,7 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
                       style={{
                         display: 'block',
                         width: '100%',
+                        minHeight: 44,
                         textAlign: 'left',
                         padding: '8px 10px',
                         borderRadius: 8,
@@ -437,6 +458,7 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
                         color: 'var(--ta-text)',
                         fontSize: 13,
                         marginBottom: 4,
+                        boxSizing: 'border-box',
                       }}
                     >
                       {r.nombre || '(sin nombre)'} · {r.telefonos?.[0] || 'sin teléfono'}
@@ -520,6 +542,7 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
                 onClick={() => setRol(r.value)}
                 style={{
                   fontSize: 12,
+                  minHeight: 40,
                   padding: '6px 10px',
                   borderRadius: 20,
                   border: rol === r.value ? 'none' : '0.5px solid var(--ta-border)',
@@ -656,6 +679,18 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
           propiedadTitulo={propiedadTitulo}
           onCerrar={() => setMostrarFormInteraccion(false)}
           onGuardado={() => setMostrarFormInteraccion(false)}
+        />
+      )}
+
+      {/* Modal de alta de cita — propiedad ya bloqueada (chip), el contacto
+          queda libre para buscar/asociar. CitaForm.jsx ya trae su propio
+          overlay fixed, no se envuelve en nada extra. */}
+      {mostrarFormCita && (
+        <CitaForm
+          propiedadId={propiedadId}
+          propiedadTitulo={propiedadTitulo}
+          onCerrar={() => setMostrarFormCita(false)}
+          onGuardado={() => setMostrarFormCita(false)}
         />
       )}
     </div>

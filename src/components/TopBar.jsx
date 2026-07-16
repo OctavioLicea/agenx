@@ -54,6 +54,17 @@ function IconoInteracciones() {
   )
 }
 
+// Sprint N — Citas, cuarto módulo raíz (Sesión 13). Ícono de calendario,
+// mismo trazo que IconoCalendario en InteraccionForm.jsx/ListadoCitas.jsx.
+function IconoCitas() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
+  )
+}
+
 function IconoUsuario() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -73,7 +84,7 @@ function IconoSalir() {
   )
 }
 
-export default function TopBar({ user, userName, userEmail, perfilVersion, breadcrumb = ['Propiedades'], onHome, onIrAContactos, onIrAInteracciones, onVerPerfil, onLogout }) {
+export default function TopBar({ user, userName, userEmail, perfilVersion, breadcrumb = ['Propiedades'], onHome, onIrAContactos, onIrAInteracciones, onIrACitas, onVerPerfil, onLogout }) {
   const [ahora, setAhora] = useState(new Date())
   const [menuAbierto, setMenuAbierto] = useState(false)
   const menuRef = useRef(null)
@@ -296,6 +307,33 @@ export default function TopBar({ user, userName, userEmail, perfilVersion, bread
               role="menuitem"
               onClick={() => {
                 setMenuAbierto(false)
+                onIrACitas?.()
+              }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '10px 14px',
+                border: 'none',
+                borderTop: '0.5px solid var(--ta-border)',
+                background: 'none',
+                color: breadcrumb[0] === 'Citas' ? 'var(--ta-accent)' : 'var(--ta-text)',
+                fontWeight: breadcrumb[0] === 'Citas' ? 500 : 400,
+                fontSize: 13,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <IconoCitas />
+              Citas
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuAbierto(false)
                 onVerPerfil?.()
               }}
               style={{
@@ -333,4 +371,24 @@ export default function TopBar({ user, userName, userEmail, perfilVersion, bread
                 border: 'none',
                 borderTop: '0.5px solid var(--ta-border)',
                 background: 'none',
-                color: 'var(--
+                color: 'var(--ta-text)',
+                fontSize: 13,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <IconoSalir />
+              Cerrar sesión
+            </button>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @media (min-width: 640px) {
+          .ta-topbar-info { display: block !important; }
+        }
+      `}</style>
+    </header>
+  )
+}

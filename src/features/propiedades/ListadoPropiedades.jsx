@@ -634,4 +634,23 @@ export default function ListadoPropiedades({ onSeleccionar, onNueva, refreshKey 
           aria-label="Nueva propiedad"
           style={{
             position: 'absolute',
-            bottom: vista === 'mapa' 
+            bottom: vista === 'mapa' ? (sheetExpandido ? '82%' : 246) : 16,
+            right: 16,
+            zIndex: 25,
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            border: 'none',
+            background: 'linear-gradient(160deg, color-mix(in srgb, var(--ta-accent) 82%, white 18%), var(--ta-accent) 55%, color-mix(in srgb, var(--ta-accent) 85%, black 15%))',
+            color: 'var(--ta-on-accent)',
+            fontSize: 24,
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+          }}
+        >
+          +
+        </button>
+      </div>
+    </div>
+  )
+}

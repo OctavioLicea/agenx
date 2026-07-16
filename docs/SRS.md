@@ -1,7 +1,7 @@
 # TuAsesor — Especificación de Requerimientos de Software (SRS)
 
-**Versión:** 2.0
-**Última actualización:** Sesión 10, 9 de julio 2026 — modelo de teléfonos migrado a tabla puente, Interacciones (Sprint 3) diseñado y con primera vuelta de código, Procesos comerciales y Bóveda de documentos incorporados al modelo (se habían construido en sesiones previas sin actualizar este documento).
+**Versión:** 2.1
+**Última actualización:** Sesión 13, 14 de julio 2026 — Citas (Sprint N) construido de punta a punta: decisión de "módulo separado de Interacciones" tomada, tabla `visitas` (ya existía en Supabase desde Sesión 10, sin usar) conectada a un módulo completo.
 **Fuente de verdad:** Este documento + `docs/bitacora/` (histórico cronológico, un archivo por sesión) + `docs/BACKLOG.md` (pendientes vivos, un solo archivo editado in-place). El historial de cambios de este mismo documento vive en `git log`/`git blame` — no se lleva un anexo de cambios aparte.
 
 ---
@@ -278,10 +278,32 @@ create table tuasesor.interacciones (
 - `canal`: `redes_sociales` agrupa Instagram/TikTok/Facebook como un solo valor — cuál red específica ya la distingue `fuente`, no hace falta duplicar el dato en dos campos.
 - **Formulario único** (`InteraccionForm.jsx`), invocable desde cualquier lugar (ficha de Contacto, Colaboradores de una Propiedad, o un botón global) sin selector de contexto: Contacto siempre arriba y obligatorio (búsqueda por nombre o teléfono contra `contacto_telefonos`, con alta rápida si no existe), Propiedad siempre abajo y opcional.
 - "Tareas" asociadas a una interacción (seguimiento formal tipo to-do) — diferido a Fase 2, sin schema reservado todavía.
-- **Decisión abierta**: ¿Interacciones y Visitas/Citas son un mismo módulo o separados?
+- **Decisión resuelta (Sesión 13)**: Interacciones y Citas/Visitas son módulos **separados**. Interacciones es bitácora de comunicación ya sucedida (`propiedad_id` opcional); Citas es agenda a futuro con estado y `propiedad_id` obligatorio — ver 5.7.
 
-### 5.7 `visitas`
-`contacto_id` + `propiedad_id` obligatorios. Bloqueada por trigger de base de datos si el contacto no tiene nombre. **Sin construir** — depende de la decisión abierta en 5.6.
+### 5.7 `visitas` (módulo "Citas")
+
+```sql
+create table tuasesor.visitas (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) default auth.uid(),
+
+  contacto_id uuid not null references tuasesor.contactos(id) on delete cascade,
+  propiedad_id uuid not null references tuasesor.propiedades(id) on delete cascade,
+
+  fecha_hora timestamptz not null,
+  estado text not null default 'programada'
+    check (estado in ('programada','realizada','cancelada','no_asistio')),
+  nota text,
+
+  created_at timestamptz not null default now()
+);
+```
+
+- **Construido (Sesión 13)**: `useCita.js`, `CitaForm.jsx`, `ListadoCitas.jsx`, entradas desde `ContactoForm.jsx` (sección "Citas"), `FichaColaboradores.jsx` (botón "+ Agendar visita", propiedad bloqueada), y nuevo módulo raíz en `TopBar.jsx`/`App.jsx`.
+- `contacto_id` y `propiedad_id` **ambos obligatorios** (a diferencia de `interacciones`, donde `propiedad_id` es opcional) — refleja que una visita siempre es a una propiedad concreta.
+- **Estados reales del CHECK constraint** (confirmados contra el schema de Supabase antes de construir, la tabla ya existía desde Sesión 10 sin usarse): `programada`, `realizada`, `cancelada`, `no_asistio`. **No existe el estado `confirmada`** — se descartó de la UI al descubrir que no está en el constraint.
+- Trigger `trg_visitas_requiere_nombre` (BEFORE INSERT): bloquea el alta si el contacto no tiene `nombre`. Por eso `CitaForm.jsx` NO permite alta rápida de contacto solo con teléfono (a diferencia de `InteraccionForm.jsx`) — el mini-formulario de alta rápida siempre pide nombre explícito antes de habilitar "Crear contacto".
+- Sin vista de calendario — es una lista ordenable/filtrable (mismo patrón que Interacciones), orden por default ascendente por `fecha_hora` ("Próximas primero"), a diferencia de Interacciones que ordena descendente (más recientes primero). YAGNI: calendario visual queda diferido hasta que el volumen de citas de Nydia lo justifique.
 
 ### 5.8 `propiedad_colaboradores`
 Reemplaza la idea de "coasesores". Cualquier persona que participa en una propiedad en cualquier rol vive aquí — `id` propia (un mismo contacto puede tener varios roles en la misma propiedad). Columnas: `propiedad_id`, `contacto_id`, `rol` (vendedor, comprador_interesado, arrendador, arrendatario, asesor_colaborador, notario, ejecutivo_bancario, agencia_investigacion, proveedor, otro), `rol_otro`, `porcentaje_comision` (nullable), `notas`, `activo`.
@@ -338,8 +360,8 @@ Datos del asesor: `nombre_completo`/`nombre_corto`/`nombre_comercial` (columnas 
 |---|---|---|
 | **Sprint 1** | Propiedades | **Cerrado.** Colaboradores probado con contactos reales (Sesión 9). Pendiente: accesibilidad, feedback de Nydia en Historial/Situación fiscal y legal |
 | **Sprint 2** | Libreta de contactos | **Cerrado (base), con refactor de teléfonos en curso.** Ver 5.2/5.3. Pendiente: vCard, accesibilidad |
-| **Sprint 3** | Interacciones | **En curso.** Schema y formulario único diseñados y con primera vuelta de código (Sesión 10). Pendiente: punto de entrada desde Colaboradores, botón global, listado propio ordenable |
-| **Sprint N** | Citas | **No iniciado.** Depende de la decisión de fusión/separación con Interacciones |
+| **Sprint 3** | Interacciones | **Cerrado.** Probado de punta a punta con datos reales (Sesión 11) |
+| **Sprint N** | Citas | **Construido (Sesión 13).** Módulo separado de Interacciones — `visitas`, `CitaForm.jsx`, `ListadoCitas.jsx`, puntos de entrada. Pendiente probar con datos reales |
 
 ### 6.1 Sprint 1 — estado de diseño
 

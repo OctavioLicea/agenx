@@ -358,6 +358,16 @@ export default function EnviarDocumentosBoveda({ contacto, onCerrar, onActualiza
         >
           {generando ? 'Generando links...' : 'Abrir correo'}
         </button>
+
+        {/* Aviso sobre la limitación real de mailto: — decisión explícita de
+            Okta (Sesión 13): se queda con mailto (cero costo/infra), pero se
+            avisa por qué el remitente puede no verse como el correo de
+            negocio de Nydia — es la app de correo predeterminada del
+            dispositivo la que decide el "De:", no esta pantalla. */}
+        <p style={{ fontSize: 10, color: 'var(--ta-text-muted)', textAlign: 'center', marginTop: 8 }}>
+          Esto abre tu app de correo predeterminada — el remitente ("De:") es
+          la cuenta configurada ahí, no algo que TuAsesor pueda cambiar.
+        </p>
       </div>
     </div>
   )

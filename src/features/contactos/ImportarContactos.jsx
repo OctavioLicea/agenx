@@ -34,7 +34,38 @@
 //   auto-detección de columna añadida (rol/role/puesto/cargo/title) y
 //   soporte del campo ROLE en vCard como bono, aunque el caso principal
 //   pedido es CSV desde Excel.
-// Timestamp: 2026-07-13, 22:56 hrs
+//   [Actualización 2026-07-14, 21:45 hrs]: se agrega "Notas" al paso de
+//   mapeo — mismo patrón que "Rol principal", texto libre guardado en la
+//   columna real `nota_sin_propiedad` de `contactos` (la misma que usa la
+//   sección "Nota" de ContactoForm.jsx). Auto-detección por columna
+//   nota/note/comentario/observación; vCard soporta el campo NOTE
+//   estándar.
+//   [Actualización 2026-07-14, 22:05 hrs]: Okta preguntó por soporte
+//   directo de .xlsx. Decisión (elegida explícitamente sobre agregar
+//   SheetJS/xlsx como dependencia nueva): el importador ya lee CSV, que
+//   es exactamente lo que Excel produce con "Guardar como > CSV" — se
+//   deja así, cero dependencias nuevas. En vez de dejar que un .xlsx
+//   suba y falle con un error críptico (se leería como texto binario
+//   corrupto), se detecta la extensión .xlsx/.xls explícitamente y se
+//   muestra un mensaje guiando a exportar CSV primero. `accept` del
+//   input se amplió para permitir seleccionar .xlsx en el picker (si no,
+//   el navegador los oculta y el mensaje nunca se vería).
+//   [Actualización 2026-07-14, 22:30 hrs] BUG DE RENDIMIENTO reportado por
+//   Okta probando con un archivo real de 5427 filas: "importando 43 de
+//   5427" — a ese ritmo, horas. Causa: `importar()` hacía un INSERT por
+//   contacto (esperado, uno a la vez) más otro INSERT por cada teléfono —
+//   miles de round-trips secuenciales de red. Reescrito a inserts por
+//   lote (`TAMANO_LOTE` = 300): se arma el arreglo completo del lote y se
+//   manda en un solo INSERT, reduciendo miles de requests a un puñado.
+//   El id de cada contacto se genera en el cliente (`crypto.randomUUID()`)
+//   ANTES de insertar, en vez de esperar el id que devuelve Supabase y
+//   asumir que el orden de la respuesta coincide con el orden enviado —
+//   así el insert de teléfonos del lote (que depende de saber el
+//   contacto_id de cada fila) es correcto sin importar el orden real de
+//   retorno de Postgres. `resultado` ahora también reporta cuántos
+//   contactos fallaron por error de guardado (antes se contaban en
+//   silencio como "no importados" sin decir por qué).
+// Timestamp: 2026-07-14, 22:30 hrs
 
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
@@ -45,7 +76,16 @@ const CAMPOS_MAPEO = [
   { key: 'empresa', label: 'Empresa' },
   { key: 'correo', label: 'Correo' },
   { key: 'rol', label: 'Rol principal' },
+  { key: 'notas', label: 'Notas' },
 ]
+
+// Tamaño de lote para el insert masivo — antes se insertaba un contacto (y
+// sus teléfonos) por request, secuencial: con miles de filas eso significa
+// miles de round-trips de red, uno esperando al anterior (~horas). Insertar
+// en lotes reduce eso a un puñado de requests. 300 es conservador frente al
+// límite de payload de Supabase, sin dejar de ser un salto enorme en
+// velocidad frente a fila por fila.
+const TAMANO_LOTE = 300
 
 function soloDigitos(texto) {
   return (texto || '').replace(/\D/g, '')
@@ -102,7 +142,7 @@ function parseVCard(texto) {
   for (const linea of lineas) {
     const l = linea.trim()
     if (!l) continue
-    if (/^BEGIN:VCARD$/i.test(l)) { actual = { nombre: null, telefonos: [], correo: null, empresa: null, rol: null }; continue }
+    if (/^BEGIN:VCARD$/i.test(l)) { actual = { nombre: null, telefonos: [], correo: null, empresa: null, rol: null, notas: null }; continue }
     if (/^END:VCARD$/i.test(l)) { if (actual) contactos.push(actual); actual = null; continue }
     if (!actual) continue
 
@@ -126,6 +166,8 @@ function parseVCard(texto) {
       actual.empresa = valor.split(';')[0]
     } else if (clave === 'ROLE' && !actual.rol) {
       actual.rol = valor
+    } else if (clave === 'NOTE' && !actual.notas) {
+      actual.notas = valor
     }
   }
   return contactos
@@ -139,6 +181,7 @@ function autoDetectarMapeo(headers) {
     empresa: buscar(['company', 'empresa', 'organization', 'organización']),
     correo: buscar(['email', 'correo', 'e-mail']),
     rol: buscar(['rol', 'role', 'puesto', 'cargo', 'title']),
+    notas: buscar(['nota', 'note', 'comentario', 'observacion', 'observación']),
   }
 }
 
@@ -160,7 +203,7 @@ export default function ImportarContactos({ onCerrar, onImportado }) {
   const [paso, setPaso] = useState('archivo') // 'archivo' | 'mapeo' | 'preview' | 'importando' | 'resultado'
   const [csvHeaders, setCsvHeaders] = useState([])
   const [csvFilas, setCsvFilas] = useState([])
-  const [mapeo, setMapeo] = useState({ nombre: -1, telefono: -1, empresa: -1, correo: -1, rol: -1 })
+  const [mapeo, setMapeo] = useState({ nombre: -1, telefono: -1, empresa: -1, correo: -1, rol: -1, notas: -1 })
   const [candidatos, setCandidatos] = useState([])
   const [progreso, setProgreso] = useState({ hecho: 0, total: 0 })
   const [resultado, setResultado] = useState(null)
@@ -201,6 +244,12 @@ export default function ImportarContactos({ onCerrar, onImportado }) {
     const file = e.target.files?.[0]
     if (!file) return
     setErrorGlobal(null)
+
+    if (/\.xlsx?$/i.test(file.name)) {
+      setErrorGlobal('Los archivos de Excel (.xlsx/.xls) no se pueden leer directo todavía. Ábrelo en Excel y usa "Archivo > Guardar como > CSV (delimitado por comas)", luego sube ese archivo aquí.')
+      return
+    }
+
     const texto = await file.text()
     const pareceVCard = /\.vcf$|\.vcard$/i.test(file.name) || /BEGIN:VCARD/i.test(texto.slice(0, 300))
 
@@ -210,7 +259,7 @@ export default function ImportarContactos({ onCerrar, onImportado }) {
         setErrorGlobal('No se encontraron tarjetas VCARD en este archivo.')
         return
       }
-      prepararPreview(contactosVCard.map((c) => ({ nombre: c.nombre, telefonos: c.telefonos, empresa: c.empresa, correo: c.correo, rol: c.rol })))
+      prepararPreview(contactosVCard.map((c) => ({ nombre: c.nombre, telefonos: c.telefonos, empresa: c.empresa, correo: c.correo, rol: c.rol, notas: c.notas })))
     } else {
       const { headers, filas } = parseCSV(texto)
       if (headers.length === 0 || filas.length === 0) {
@@ -235,6 +284,7 @@ export default function ImportarContactos({ onCerrar, onImportado }) {
       empresa: mapeo.empresa >= 0 ? (fila[mapeo.empresa] || '').trim() || null : null,
       correo: mapeo.correo >= 0 ? (fila[mapeo.correo] || '').trim() || null : null,
       rol: mapeo.rol >= 0 ? (fila[mapeo.rol] || '').trim() || null : null,
+      notas: mapeo.notas >= 0 ? (fila[mapeo.notas] || '').trim() || null : null,
     }))
     prepararPreview(lista)
   }
@@ -247,28 +297,48 @@ export default function ImportarContactos({ onCerrar, onImportado }) {
     setProgreso({ hecho: 0, total: porImportar.length })
 
     let importados = 0
-    for (const c of porImportar) {
-      const { data: nuevoContacto, error: errC } = await supabase
-        .from('contactos')
-        .insert({ nombre: c.nombre || null, empresa: c.empresa || null, correo: c.correo || null, rol_principal: c.rol || null, user_id: userId })
-        .select()
-        .single()
+    let conError = 0
 
-      if (!errC && nuevoContacto) {
-        for (let idx = 0; idx < c.telefonos.length; idx++) {
-          await supabase.from('contacto_telefonos').insert({
-            contacto_id: nuevoContacto.id,
-            telefono: c.telefonos[idx],
-            es_principal: idx === 0,
-            user_id: userId,
-          })
-        }
-        importados++
+    for (let i = 0; i < porImportar.length; i += TAMANO_LOTE) {
+      const lote = porImportar.slice(i, i + TAMANO_LOTE)
+
+      // id generado en el cliente (en vez de dejar que lo asigne Supabase y
+      // confiar en que el orden de la respuesta coincida con el orden del
+      // insert) — así cada contacto del lote se liga con sus teléfonos sin
+      // ambigüedad, pase lo que pase con el orden de retorno de Postgres.
+      const filas = lote.map((c) => ({
+        id: crypto.randomUUID(),
+        nombre: c.nombre || null,
+        empresa: c.empresa || null,
+        correo: c.correo || null,
+        rol_principal: c.rol || null,
+        nota_sin_propiedad: c.notas || null,
+        user_id: userId,
+      }))
+
+      const { error: errC } = await supabase.from('contactos').insert(filas)
+
+      if (errC) {
+        conError += lote.length
+        setProgreso((p) => ({ ...p, hecho: p.hecho + lote.length }))
+        continue
       }
-      setProgreso((p) => ({ ...p, hecho: p.hecho + 1 }))
+
+      const telefonosLote = []
+      lote.forEach((c, idx) => {
+        c.telefonos.forEach((telefono, tIdx) => {
+          telefonosLote.push({ contacto_id: filas[idx].id, telefono, es_principal: tIdx === 0, user_id: userId })
+        })
+      })
+      if (telefonosLote.length > 0) {
+        await supabase.from('contacto_telefonos').insert(telefonosLote)
+      }
+
+      importados += lote.length
+      setProgreso((p) => ({ ...p, hecho: p.hecho + lote.length }))
     }
 
-    setResultado({ importados, omitidosDuplicado: candidatos.length - porImportar.length })
+    setResultado({ importados, omitidosDuplicado: candidatos.length - porImportar.length, conError })
     setPaso('resultado')
   }
 
@@ -295,11 +365,16 @@ export default function ImportarContactos({ onCerrar, onImportado }) {
               Sube un archivo CSV (exportado de Excel/Google Sheets o de Google
               Contacts) o vCard/.vcf (exportado directo del Contactos de tu
               celular). Si tu Excel tiene una columna de rol (ej. "Rol",
-              "Puesto"), en el siguiente paso podrás asignarla a cada contacto.
+              "Puesto") o de notas, en el siguiente paso podrás asignarlas a
+              cada contacto.
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--ta-text-muted)', margin: '0 0 14px', fontStyle: 'italic' }}>
+              ¿Tienes un archivo de Excel (.xlsx)? Ábrelo y usa "Archivo &gt;
+              Guardar como &gt; CSV (delimitado por comas)" antes de subirlo aquí.
             </p>
             <input
               type="file"
-              accept=".csv,.vcf,.vcard,text/csv"
+              accept=".csv,.vcf,.vcard,text/csv,.xlsx,.xls"
               onChange={onArchivo}
               style={{ width: '100%', fontSize: 13, color: 'var(--ta-text)' }}
             />
@@ -362,6 +437,11 @@ export default function ImportarContactos({ onCerrar, onImportado }) {
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--ta-text-muted)' }}>
                     {c.telefonos.join(', ') || 'Sin teléfono'}{c.empresa ? ` · ${c.empresa}` : ''}{c.rol ? ` · ${c.rol}` : ''}
                   </p>
+                  {c.notas && (
+                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--ta-text-muted)', fontStyle: 'italic' }}>
+                      {c.notas}
+                    </p>
+                  )}
                 </div>
               ))}
               {candidatos.length > 60 && (
@@ -393,4 +473,39 @@ export default function ImportarContactos({ onCerrar, onImportado }) {
             </p>
             <div style={{ height: 8, borderRadius: 4, background: 'var(--ta-bg)', overflow: 'hidden' }}>
               <div style={{
-                height:
+                height: '100%', background: 'var(--ta-accent)',
+                width: progreso.total > 0 ? `${(progreso.hecho / progreso.total) * 100}%` : '0%',
+                transition: 'width 150ms ease',
+              }} />
+            </div>
+            <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--ta-text-muted)', marginTop: 14 }}>
+              No cierres esta ventana todavía...
+            </p>
+          </>
+        )}
+
+        {paso === 'resultado' && (
+          <>
+            {encabezado('Listo')}
+            <p style={{ fontSize: 14, color: 'var(--ta-text)', margin: '0 0 6px' }}>
+              {resultado.importados} contacto{resultado.importados === 1 ? '' : 's'} importado{resultado.importados === 1 ? '' : 's'}.
+            </p>
+            {resultado.omitidosDuplicado > 0 && (
+              <p style={{ fontSize: 13, color: 'var(--ta-text-muted)', margin: '0 0 6px' }}>
+                {resultado.omitidosDuplicado} se omitieron por ya existir (mismo teléfono).
+              </p>
+            )}
+            {resultado.conError > 0 && (
+              <p style={{ fontSize: 13, color: '#993C1D', margin: '0 0 14px' }}>
+                {resultado.conError} no se pudieron importar por un error al guardar (revisa el archivo o intenta de nuevo).
+              </p>
+            )}
+            <button type="button" onClick={() => onImportado?.()} style={estiloBotonPrimario}>
+              Cerrar
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}

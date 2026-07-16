@@ -1,68 +1,36 @@
-// src/features/interacciones/InteraccionForm.jsx
-// Motivo: Sprint 3 (Interacciones) — formulario único invocable desde
-//   cualquier lugar (ContactoForm.jsx, FichaColaboradores.jsx, o el botón
-//   global "Registrar nueva interacción"). Sin selector de contexto:
-//   Contacto siempre arriba y obligatorio (búsqueda por nombre o
-//   teléfono contra contacto_telefonos, con alta rápida si no existe),
-//   Propiedad siempre abajo y opcional. Si se invoca con `contactoId` o
-//   `propiedadId` ya resueltos, ese campo llega bloqueado (chip); el
-//   otro queda libre para buscar/asociar.
-//   [Actualización 13 jul 2026 — homologación de accesibilidad en
-//   Contactos]: botones "Cerrar"/"Quitar propiedad" suben a 44x44px; las
-//   filas de resultado de BuscadorContacto y BuscadorPropiedad eran
-//   <div onClick> sin tabIndex/role — inoperables por teclado — ahora
-//   son navegables (role="button", tabIndex, Enter/Espacio).
-//   [Actualización 13 jul 2026, más tarde]: se detectó que la tabla
-//   `interacciones` seguía en 0 filas — el botón "Guardar interacción"
-//   se queda deshabilitado en silencio si falta contacto o canal, sin
-//   ningún aviso. Se agrega un mensaje visible explicando qué falta.
-//   [Actualización 13 jul 2026, feedback de la primera prueba real]:
-//   (1) modo edición vía prop `interaccionInicial` — invocado desde el
-//   nuevo click-en-fila de ListadoInteracciones.jsx, reutiliza el UPDATE
-//   que useInteraccion() ya soportaba; (2) datetime-local reemplazado por
-//   dos inputs nativos (date + time) — se veía feo en captura de Okta.
-//   [Actualización 13 jul 2026, segunda vuelta]: (1) miniatura de
-//   propiedad en BuscadorPropiedad (resultados y chip bloqueado); (2)
-//   íconos de calendario/reloj superpuestos en los inputs date/time —
-//   sin esto no había señal visual de que fueran controles tocables en
-//   algunos navegadores/SO (pregunta directa de Okta al probar).
-// Timestamp: 2026-07-13, 22:17 hrs
+// src/features/citas/CitaForm.jsx
+// Motivo: Sprint N (Citas) — formulario único invocable desde cualquier
+//   lugar (ContactoForm.jsx, FichaColaboradores.jsx, o el botón global
+//   "Agendar visita"), mismo patrón que InteraccionForm.jsx. Diferencia
+//   clave frente a Interacciones: aquí Contacto Y Propiedad son AMBOS
+//   obligatorios (columnas NOT NULL en `visitas`), y el contacto debe
+//   tener nombre — hay un trigger de BD que bloquea el INSERT si no lo
+//   tiene ("No se puede agendar una visita: el contacto no tiene nombre
+//   registrado."). Por eso el alta rápida de contacto aquí SIEMPRE pide
+//   nombre explícito (no se puede dar de alta solo con teléfono, a
+//   diferencia de InteraccionForm.jsx) — mismo patrón de dos campos
+//   (nombre + teléfono opcional) que crearContactoRapido en
+//   FichaColaboradores.jsx.
+//
+// [Actualización 2026-07-14, 21:40 hrs] Fix reportado por Okta al editar
+//   una cita: el contacto quedaba permanentemente bloqueado (sin forma de
+//   cambiarlo), a diferencia de Propiedad, que ya tenía su botón "X" desde
+//   el inicio. Se agregó el mismo patrón "onQuitar" a
+//   BuscadorContactoConNombre — al quitar el contacto vuelve a mostrar el
+//   buscador/alta rápida, igual que ya pasaba con Propiedad.
+// Timestamp: 2026-07-14, 21:40 hrs
 
 import { useState, useEffect } from 'react'
-import { useInteraccion, INTERACCION_VACIA } from './hooks/useInteraccion'
+import { useCita, CITA_VACIA, ESTADOS_CITA } from './hooks/useCita'
 import { supabase } from '../../lib/supabaseClient'
 
-const CANALES = [
-  { value: 'whatsapp', label: 'Whatsapp' },
-  { value: 'llamada', label: 'Llamada' },
-  { value: 'redes_sociales', label: 'Redes' },
-  { value: 'otro', label: 'Otro' },
-]
-
-const DIRECCIONES = [
-  { value: 'entrante', label: 'Entrante' },
-  { value: 'saliente', label: 'Saliente' },
-]
-
-const FUENTES = [
-  { value: 'letrero', label: 'Letrero' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'tiktok', label: 'Tiktok' },
-  { value: 'recomendacion', label: 'Recomendación' },
-  { value: 'otro', label: 'Otro' },
-]
-
-// Heurística simple para decidir si lo que se tecleó en el buscador de
-// contacto es un teléfono o un nombre, al momento de dar de alta rápida.
-function pareceTelefono(texto) {
-  const digitos = (texto.match(/\d/g) || []).length
-  return digitos >= 5
+const ESTADO_LABEL = {
+  programada: 'Programada',
+  realizada: 'Realizada',
+  cancelada: 'Cancelada',
+  no_asistio: 'No asistió',
 }
 
-// Fecha y hora como dos campos nativos separados (date + time) en vez de
-// datetime-local combinado — controles nativos del teléfono más amigables,
-// sin construir un picker propio (feedback de Okta, Sesión 11).
 function aFechaInput(fechaIso) {
   const d = fechaIso ? new Date(fechaIso) : new Date()
   const pad = (n) => String(n).padStart(2, '0')
@@ -90,9 +58,6 @@ function IconoBuscar() {
   )
 }
 
-// Calendario/reloj — señal visual explícita de que el campo es un control
-// tocable. Los inputs date/time nativos no siempre traen su propio ícono
-// (varía por navegador/SO — feedback de Okta al probar en su captura).
 function IconoCalendario() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -118,9 +83,8 @@ function portadaDe(propiedad) {
   return data?.publicUrl || null
 }
 
-// Búsqueda combinada: nombre en `contactos`, teléfono en `contacto_telefonos`.
-// Dos queries en paralelo en vez de un OR anidado entre tablas — más
-// simple y predecible que un filtro cruzado de PostgREST.
+// Búsqueda combinada: nombre en `contactos`, teléfono en `contacto_telefonos`
+// — mismo patrón (2 queries en paralelo) que InteraccionForm.jsx.
 async function buscarContactos(texto) {
   const like = `%${texto}%`
   const [porNombre, porTelefono] = await Promise.all([
@@ -140,8 +104,6 @@ async function buscarContactos(texto) {
   const resultados = Array.from(mapa.values())
   if (resultados.length === 0) return resultados
 
-  // Traer TODOS los teléfonos de los contactos encontrados, para mostrarlos
-  // debajo del nombre aunque el match haya sido solo por nombre.
   const ids = resultados.map((c) => c.id)
   const { data: todosTelefonos } = await supabase
     .from('contacto_telefonos')
@@ -158,33 +120,37 @@ async function buscarContactos(texto) {
   return resultados
 }
 
-async function crearContactoRapido(texto) {
+// Alta rápida CON nombre obligatorio — a diferencia de InteraccionForm.jsx,
+// aquí no se puede dar de alta un contacto solo con teléfono porque el
+// trigger de `visitas` bloquea el INSERT si el contacto no tiene nombre.
+async function crearContactoConNombre({ nombre, telefono }) {
   const { data: userData } = await supabase.auth.getUser()
   const userId = userData?.user?.id
-  const esTelefono = pareceTelefono(texto)
 
   const { data: nuevoContacto, error: errContacto } = await supabase
     .from('contactos')
-    .insert({ nombre: esTelefono ? null : texto, user_id: userId })
+    .insert({ nombre: nombre.trim(), user_id: userId })
     .select()
     .single()
   if (errContacto) return { ok: false, error: errContacto }
 
-  if (esTelefono) {
+  if (telefono?.trim()) {
     const { error: errTel } = await supabase
       .from('contacto_telefonos')
-      .insert({ contacto_id: nuevoContacto.id, telefono: texto, es_principal: true, user_id: userId })
+      .insert({ contacto_id: nuevoContacto.id, telefono: telefono.trim(), es_principal: true, user_id: userId })
     if (errTel) return { ok: false, error: errTel }
   }
 
   return { ok: true, contacto: nuevoContacto }
 }
 
-function BuscadorContacto({ contactoBloqueado, onSeleccionar }) {
+function BuscadorContactoConNombre({ contactoBloqueado, onSeleccionar, onQuitar }) {
   const [texto, setTexto] = useState('')
   const [resultados, setResultados] = useState([])
   const [buscando, setBuscando] = useState(false)
   const [creando, setCreando] = useState(false)
+  const [altaNombre, setAltaNombre] = useState('')
+  const [altaTelefono, setAltaTelefono] = useState('')
 
   useEffect(() => {
     if (!texto.trim() || texto.trim().length < 2) { setResultados([]); return }
@@ -204,18 +170,26 @@ function BuscadorContacto({ contactoBloqueado, onSeleccionar }) {
           {(contactoBloqueado.nombre || '?').slice(0, 2).toUpperCase()}
         </div>
         <span style={{ fontSize: 14, color: 'var(--ta-text)', flex: 1 }}>{contactoBloqueado.nombre || 'Sin nombre'}</span>
+        {onQuitar && (
+          <button type="button" onClick={onQuitar} aria-label="Quitar contacto" title="Quitar contacto" style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderRadius: 8, flexShrink: 0 }}>
+            <IconoX />
+          </button>
+        )}
       </div>
     )
   }
 
   const crearRapido = async () => {
+    if (!altaNombre.trim()) return
     setCreando(true)
-    const res = await crearContactoRapido(texto.trim())
+    const res = await crearContactoConNombre({ nombre: altaNombre, telefono: altaTelefono })
     setCreando(false)
     if (res.ok) {
       onSeleccionar({ id: res.contacto.id, nombre: res.contacto.nombre })
       setTexto('')
       setResultados([])
+      setAltaNombre('')
+      setAltaTelefono('')
     }
   }
 
@@ -231,48 +205,70 @@ function BuscadorContacto({ contactoBloqueado, onSeleccionar }) {
         }}
       />
       {texto.trim().length >= 2 && (
-        <div style={{ marginTop: 6, border: '0.5px solid var(--ta-border)', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ marginTop: 6 }}>
           {buscando ? (
-            <p style={{ margin: 0, padding: 10, fontSize: 12, color: 'var(--ta-text-muted)' }}>Buscando...</p>
+            <p style={{ margin: 0, padding: 10, fontSize: 12, color: 'var(--ta-text-muted)', border: '0.5px solid var(--ta-border)', borderRadius: 10 }}>Buscando...</p>
           ) : resultados.length > 0 ? (
-            resultados.map((c, idx) => {
-              const elegir = () => { onSeleccionar({ id: c.id, nombre: c.nombre }); setTexto(''); setResultados([]) }
-              return (
-                <div
-                  key={c.id}
-                  onClick={elegir}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); elegir() } }}
-                  style={{ padding: '8px 10px', cursor: 'pointer', minHeight: 44, boxSizing: 'border-box', borderTop: idx === 0 ? 'none' : '0.5px solid var(--ta-border)' }}
-                >
-                  <p style={{ margin: 0, fontSize: 13, color: 'var(--ta-text)' }}>{c.nombre || 'Sin nombre'}</p>
-                  {c.telefonos?.length > 0 && (
-                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--ta-text-muted)' }}>{c.telefonos.join(' · ')}</p>
-                  )}
-                </div>
-              )
-            })
+            <div style={{ border: '0.5px solid var(--ta-border)', borderRadius: 10, overflow: 'hidden' }}>
+              {resultados.map((c, idx) => {
+                const elegir = () => { onSeleccionar({ id: c.id, nombre: c.nombre }); setTexto(''); setResultados([]) }
+                return (
+                  <div
+                    key={c.id}
+                    onClick={elegir}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); elegir() } }}
+                    style={{ padding: '8px 10px', cursor: 'pointer', minHeight: 44, boxSizing: 'border-box', borderTop: idx === 0 ? 'none' : '0.5px solid var(--ta-border)' }}
+                  >
+                    <p style={{ margin: 0, fontSize: 13, color: 'var(--ta-text)' }}>{c.nombre || 'Sin nombre'}</p>
+                    {c.telefonos?.length > 0 && (
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--ta-text-muted)' }}>{c.telefonos.join(' · ')}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           ) : (
-            <button
-              type="button"
-              onClick={crearRapido}
-              disabled={creando}
-              style={{ width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', background: 'none', fontSize: 13, color: 'var(--ta-accent)', cursor: 'pointer' }}
-            >
-              {creando ? 'Creando...' : `+ Crear contacto rápido con "${texto.trim()}"`}
-            </button>
+            <div style={{ border: '0.5px solid var(--ta-border)', borderRadius: 10, padding: 10 }}>
+              <p style={{ fontSize: 11, color: 'var(--ta-text-muted)', margin: '0 0 8px' }}>
+                No se encontró — para agendar una visita el contacto necesita nombre:
+              </p>
+              <input
+                type="text"
+                placeholder="Nombre (obligatorio)"
+                value={altaNombre || (/^[\d\s+()-]{6,}$/.test(texto.trim()) ? '' : texto)}
+                onChange={(e) => setAltaNombre(e.target.value)}
+                style={{ width: '100%', height: 36, padding: '0 10px', borderRadius: 8, border: '0.5px solid var(--ta-border)', background: 'var(--ta-surface)', color: 'var(--ta-text)', fontSize: 13, marginBottom: 6, boxSizing: 'border-box' }}
+              />
+              <input
+                type="tel"
+                placeholder="Teléfono (opcional)"
+                value={altaTelefono || (/^[\d\s+()-]{6,}$/.test(texto.trim()) ? texto : '')}
+                onChange={(e) => setAltaTelefono(e.target.value)}
+                style={{ width: '100%', height: 36, padding: '0 10px', borderRadius: 8, border: '0.5px solid var(--ta-border)', background: 'var(--ta-surface)', color: 'var(--ta-text)', fontSize: 13, marginBottom: 8, boxSizing: 'border-box' }}
+              />
+              <button
+                type="button"
+                onClick={crearRapido}
+                disabled={creando || !(altaNombre.trim() || (!/^[\d\s+()-]{6,}$/.test(texto.trim()) && texto.trim()))}
+                style={{
+                  width: '100%', height: 36, borderRadius: 8, border: 'none',
+                  background: 'var(--ta-accent)', color: 'var(--ta-on-accent)', fontSize: 13, fontWeight: 500,
+                  cursor: 'pointer', opacity: creando ? 0.7 : 1,
+                }}
+              >
+                {creando ? 'Creando...' : '+ Crear contacto'}
+              </button>
+            </div>
           )}
         </div>
       )}
-      <p style={{ fontSize: 11, color: 'var(--ta-text-muted)', margin: '6px 0 0' }}>
-        Si el teléfono o nombre no existe, se da de alta aquí mismo y se completa después.
-      </p>
     </div>
   )
 }
 
-function BuscadorPropiedad({ propiedadBloqueada, onSeleccionar, onQuitar }) {
+function BuscadorPropiedadCita({ propiedadBloqueada, onSeleccionar, onQuitar }) {
   const [texto, setTexto] = useState('')
   const [resultados, setResultados] = useState([])
   const [buscando, setBuscando] = useState(false)
@@ -298,7 +294,7 @@ function BuscadorPropiedad({ propiedadBloqueada, onSeleccionar, onQuitar }) {
           </div>
         )}
         <span style={{ fontSize: 14, color: 'var(--ta-text)', flex: 1 }}>{propiedadBloqueada.titulo || 'Sin título'}</span>
-        <button type="button" onClick={onQuitar} aria-label="Quitar propiedad" style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderRadius: 8, flexShrink: 0 }}>
+        <button type="button" onClick={onQuitar} aria-label="Quitar propiedad" title="Quitar propiedad" style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderRadius: 8, flexShrink: 0 }}>
           <IconoX />
         </button>
       </div>
@@ -351,131 +347,84 @@ function BuscadorPropiedad({ propiedadBloqueada, onSeleccionar, onQuitar }) {
   )
 }
 
-// Props: contactoId/contactoNombre y propiedadId/propiedadTitulo son
-// opcionales — cuando se invoca desde un contexto ya resuelto (la ficha
-// de un contacto, o Colaboradores de una propiedad), ese campo llega
-// bloqueado. El botón global "Registrar nueva interacción" invoca este
-// mismo formulario sin ninguno de los dos, y ambos quedan libres.
-// `interaccionInicial` (opcional, Sesión 11): modo edición — se invoca
-// desde ListadoInteracciones.jsx con la fila completa ya traída del
-// query (id, canal, direccion, nota, fecha_hora, contactos{id,nombre},
-// propiedades{id,titulo}). useInteraccion() ya sabía hacer UPDATE cuando
-// interaccion.id existe — solo faltaba poder arrancar con esos datos.
-export default function InteraccionForm({ contactoId, contactoNombre, propiedadId, propiedadTitulo, interaccionInicial, onGuardado, onCerrar }) {
-  const editando = Boolean(interaccionInicial)
+// Props: contactoId/contactoNombre y propiedadId/propiedadTitulo opcionales
+// — cuando se invoca desde un contexto ya resuelto (ficha de Contacto, o
+// Colaboradores de una Propiedad), ese campo llega bloqueado (pero se
+// puede quitar y buscar otro). `citaInicial` (fila completa de `visitas`
+// con joins) activa el modo edición. Cuando se edita desde dentro de
+// ContactoForm.jsx, el query de esa pantalla no trae el join a
+// `contactos` (ya se sabe quién es, es la ficha abierta) — por eso
+// contactoId/contactoNombre sirven como respaldo si `citaInicial.contactos`
+// no viene poblado.
+export default function CitaForm({ contactoId, contactoNombre, propiedadId, propiedadTitulo, citaInicial, onGuardado, onCerrar }) {
+  const editando = Boolean(citaInicial)
 
   const [inicial] = useState(() => {
-    if (interaccionInicial) {
+    if (citaInicial) {
       return {
-        ...INTERACCION_VACIA,
-        id: interaccionInicial.id,
-        contacto_id: interaccionInicial.contactos?.id || null,
-        propiedad_id: interaccionInicial.propiedades?.id || null,
-        canal: interaccionInicial.canal || null,
-        direccion: interaccionInicial.direccion || 'entrante',
-        nota: interaccionInicial.nota || null,
-        fecha_hora: interaccionInicial.fecha_hora || new Date().toISOString(),
+        ...CITA_VACIA,
+        id: citaInicial.id,
+        contacto_id: citaInicial.contactos?.id || contactoId || null,
+        propiedad_id: citaInicial.propiedades?.id || propiedadId || null,
+        estado: citaInicial.estado || 'programada',
+        nota: citaInicial.nota || null,
+        fecha_hora: citaInicial.fecha_hora || new Date().toISOString(),
       }
     }
     return {
-      ...INTERACCION_VACIA,
+      ...CITA_VACIA,
       contacto_id: contactoId || null,
       propiedad_id: propiedadId || null,
       fecha_hora: new Date().toISOString(),
     }
   })
-  const { interaccion, actualizar, guardar, guardando, error } = useInteraccion(inicial)
+  const { cita, actualizar, guardar, guardando, error } = useCita(inicial)
 
   const [contactoElegido, setContactoElegido] = useState(() => {
-    if (interaccionInicial?.contactos) return { id: interaccionInicial.contactos.id, nombre: interaccionInicial.contactos.nombre }
-    return contactoId ? { id: contactoId, nombre: contactoNombre } : null
+    if (citaInicial?.contactos) return { id: citaInicial.contactos.id, nombre: citaInicial.contactos.nombre }
+    if (contactoId) return { id: contactoId, nombre: contactoNombre }
+    return null
   })
   const [propiedadElegida, setPropiedadElegida] = useState(() => {
-    if (interaccionInicial?.propiedades) return { id: interaccionInicial.propiedades.id, titulo: interaccionInicial.propiedades.titulo }
+    if (citaInicial?.propiedades) return { id: citaInicial.propiedades.id, titulo: citaInicial.propiedades.titulo }
     return propiedadId ? { id: propiedadId, titulo: propiedadTitulo } : null
   })
-  const [fuenteAbierta, setFuenteAbierta] = useState(false)
 
   const guardarClick = async () => {
     const res = await guardar()
     if (res.ok) onGuardado?.(res.data)
   }
 
+  const faltaAlgo = !cita.contacto_id || !cita.propiedad_id
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(42,42,40,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
       <div style={{ width: '100%', maxWidth: 400, maxHeight: '90vh', overflowY: 'auto', background: 'var(--ta-surface)', borderRadius: 20, padding: 16 }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderRadius: 8 }}>
+          <button type="button" onClick={onCerrar} aria-label="Cerrar" title="Cerrar" style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderRadius: 8 }}>
             <IconoX />
           </button>
-          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>{editando ? 'Editar interacción' : 'Nueva interacción'}</span>
+          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>{editando ? 'Editar cita' : 'Agendar visita'}</span>
           <span style={{ width: 44 }} />
         </div>
 
         <div style={{ marginBottom: 14 }}>
           <p style={{ fontSize: 12, color: 'var(--ta-text-muted)', margin: '0 0 6px' }}>Contacto *</p>
-          <BuscadorContacto
+          <BuscadorContactoConNombre
             contactoBloqueado={contactoElegido}
             onSeleccionar={(c) => { setContactoElegido(c); actualizar({ contacto_id: c.id }) }}
+            onQuitar={() => { setContactoElegido(null); actualizar({ contacto_id: null }) }}
           />
         </div>
 
         <div style={{ marginBottom: 14 }}>
-          <p style={{ fontSize: 12, color: 'var(--ta-text-muted)', margin: '0 0 6px' }}>Propiedad <span style={{ color: 'var(--ta-text-muted)' }}>(opcional)</span></p>
-          <BuscadorPropiedad
+          <p style={{ fontSize: 12, color: 'var(--ta-text-muted)', margin: '0 0 6px' }}>Propiedad *</p>
+          <BuscadorPropiedadCita
             propiedadBloqueada={propiedadElegida}
             onSeleccionar={(p) => { setPropiedadElegida(p); actualizar({ propiedad_id: p.id }) }}
             onQuitar={() => { setPropiedadElegida(null); actualizar({ propiedad_id: null }) }}
           />
-        </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <p style={{ fontSize: 12, color: 'var(--ta-text-muted)', margin: '0 0 6px' }}>Canal</p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {CANALES.map((c) => {
-              const activo = interaccion.canal === c.value
-              return (
-                <button
-                  key={c.value}
-                  type="button"
-                  onClick={() => actualizar({ canal: c.value })}
-                  style={{
-                    flex: 1, padding: '9px 0', borderRadius: 10, fontSize: 11, cursor: 'pointer',
-                    border: activo ? '0.5px solid var(--ta-accent)' : '0.5px solid var(--ta-border)',
-                    background: activo ? 'var(--ta-accent)' : 'var(--ta-surface)',
-                    color: activo ? 'var(--ta-on-accent)' : 'var(--ta-text)',
-                  }}
-                >
-                  {c.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <p style={{ fontSize: 12, color: 'var(--ta-text-muted)', margin: '0 0 6px' }}>Dirección</p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {DIRECCIONES.map((d) => {
-              const activo = interaccion.direccion === d.value
-              return (
-                <button
-                  key={d.value}
-                  type="button"
-                  onClick={() => actualizar({ direccion: d.value })}
-                  style={{
-                    flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 12, cursor: 'pointer',
-                    border: activo ? '0.5px solid var(--ta-accent)' : '0.5px solid var(--ta-border)',
-                    background: activo ? 'var(--ta-accent)' : 'var(--ta-surface)',
-                    color: activo ? 'var(--ta-on-accent)' : 'var(--ta-text)',
-                  }}
-                >
-                  {d.label}
-                </button>
-              )
-            })}
-          </div>
         </div>
 
         <div style={{ marginBottom: 14 }}>
@@ -487,9 +436,9 @@ export default function InteraccionForm({ contactoId, contactoNombre, propiedadI
               </span>
               <input
                 type="date"
-                value={aFechaInput(interaccion.fecha_hora)}
+                value={aFechaInput(cita.fecha_hora)}
                 onChange={(e) => {
-                  const hora = aHoraInput(interaccion.fecha_hora)
+                  const hora = aHoraInput(cita.fecha_hora)
                   actualizar({ fecha_hora: new Date(`${e.target.value}T${hora}`).toISOString() })
                 }}
                 style={{
@@ -504,9 +453,9 @@ export default function InteraccionForm({ contactoId, contactoNombre, propiedadI
               </span>
               <input
                 type="time"
-                value={aHoraInput(interaccion.fecha_hora)}
+                value={aHoraInput(cita.fecha_hora)}
                 onChange={(e) => {
-                  const fecha = aFechaInput(interaccion.fecha_hora)
+                  const fecha = aFechaInput(cita.fecha_hora)
                   actualizar({ fecha_hora: new Date(`${fecha}T${e.target.value}`).toISOString() })
                 }}
                 style={{
@@ -519,12 +468,36 @@ export default function InteraccionForm({ contactoId, contactoNombre, propiedadI
         </div>
 
         <div style={{ marginBottom: 14 }}>
+          <p style={{ fontSize: 12, color: 'var(--ta-text-muted)', margin: '0 0 6px' }}>Estado</p>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {ESTADOS_CITA.map((v) => {
+              const activo = cita.estado === v
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => actualizar({ estado: v })}
+                  style={{
+                    padding: '8px 12px', borderRadius: 10, fontSize: 12, cursor: 'pointer', minHeight: 40,
+                    border: activo ? '0.5px solid var(--ta-accent)' : '0.5px solid var(--ta-border)',
+                    background: activo ? 'var(--ta-accent)' : 'var(--ta-surface)',
+                    color: activo ? 'var(--ta-on-accent)' : 'var(--ta-text)',
+                  }}
+                >
+                  {ESTADO_LABEL[v]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
           <p style={{ fontSize: 12, color: 'var(--ta-text-muted)', margin: '0 0 6px' }}>Nota</p>
           <textarea
             rows={2}
-            value={interaccion.nota || ''}
+            value={cita.nota || ''}
             onChange={(e) => actualizar({ nota: e.target.value })}
-            placeholder="¿Qué pasó en esta llamada?"
+            placeholder="¿Algo que recordar de esta visita?"
             style={{
               width: '100%', boxSizing: 'border-box', fontSize: 14, padding: '9px 10px',
               borderRadius: 10, border: '0.5px solid var(--ta-border)', background: 'var(--ta-surface)', color: 'var(--ta-text)',
@@ -533,56 +506,26 @@ export default function InteraccionForm({ contactoId, contactoNombre, propiedadI
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() => setFuenteAbierta((v) => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'none', padding: 0, fontSize: 13, color: 'var(--ta-text-muted)', marginBottom: 14, cursor: 'pointer' }}
-        >
-          + Agregar fuente
-        </button>
-        {fuenteAbierta && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '-6px 0 14px' }}>
-            {FUENTES.map((f) => {
-              const activo = interaccion.fuente === f.value
-              return (
-                <button
-                  key={f.value}
-                  type="button"
-                  onClick={() => actualizar({ fuente: activo ? null : f.value })}
-                  style={{
-                    fontSize: 11, padding: '6px 10px', borderRadius: 20, cursor: 'pointer',
-                    border: activo ? '0.5px solid var(--ta-accent)' : '0.5px solid var(--ta-border)',
-                    background: activo ? 'var(--ta-accent)' : 'none',
-                    color: activo ? 'var(--ta-on-accent)' : 'var(--ta-text)',
-                  }}
-                >
-                  {f.label}
-                </button>
-              )
-            })}
-          </div>
-        )}
-
         {error && <p style={{ color: '#993C1D', fontSize: 13, marginBottom: 10 }}>{error}</p>}
 
-        {!guardando && (!interaccion.contacto_id || !interaccion.canal) && (
+        {!guardando && faltaAlgo && (
           <p style={{ color: 'var(--ta-text-muted)', fontSize: 12, marginBottom: 10 }}>
-            {!interaccion.contacto_id ? 'Elige o crea un contacto para poder guardar.' : 'Elige un canal para poder guardar.'}
+            {!cita.contacto_id ? 'Elige o crea un contacto (con nombre) para poder guardar.' : 'Elige una propiedad para poder guardar.'}
           </p>
         )}
 
         <button
           type="button"
           onClick={guardarClick}
-          disabled={!interaccion.contacto_id || !interaccion.canal || guardando}
+          disabled={faltaAlgo || guardando}
           style={{
             width: '100%', background: 'var(--ta-accent)', color: 'var(--ta-on-accent)', border: 'none',
             borderRadius: 10, padding: '12px 0', fontSize: 14, fontWeight: 500,
-            cursor: (!interaccion.contacto_id || !interaccion.canal) ? 'default' : 'pointer',
-            opacity: (!interaccion.contacto_id || !interaccion.canal) ? 0.5 : 1,
+            cursor: faltaAlgo ? 'default' : 'pointer',
+            opacity: faltaAlgo ? 0.5 : 1,
           }}
         >
-          {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Guardar interacción'}
+          {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Agendar visita'}
         </button>
       </div>
     </div>

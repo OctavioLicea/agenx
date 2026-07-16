@@ -19,19 +19,21 @@ import PerfilForm from './features/perfil/PerfilForm'
 import ListadoContactos from './features/contactos/ListadoContactos'
 import ContactoForm from './features/contactos/ContactoForm'
 import ListadoInteracciones from './features/interacciones/ListadoInteracciones'
+import ListadoCitas from './features/citas/ListadoCitas'
 import TopBar from './components/TopBar'
 import './App.css'
 
 function App() {
   const [sesion, setSesion] = useState(null)
   const [cargando, setCargando] = useState(true)
-  const [vista, setVista] = useState('buscador') // 'buscador' | 'form' | 'perfil' | 'contactos' | 'contacto-form' | 'interacciones'
+  const [vista, setVista] = useState('buscador') // 'buscador' | 'form' | 'perfil' | 'contactos' | 'contacto-form' | 'interacciones' | 'citas'
   const [propiedadSeleccionada, setPropiedadSeleccionada] = useState(null)
   const [contactoSeleccionado, setContactoSeleccionado] = useState(null)
   const [perfilVersion, setPerfilVersion] = useState(0)
   const [listadoVersion, setListadoVersion] = useState(0)
   const [listadoContactosVersion, setListadoContactosVersion] = useState(0)
   const [listadoInteraccionesVersion, setListadoInteraccionesVersion] = useState(0)
+  const [listadoCitasVersion, setListadoCitasVersion] = useState(0)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -109,6 +111,11 @@ function App() {
     setVista('interacciones')
   }
 
+  const irACitas = () => {
+    setListadoCitasVersion((v) => v + 1)
+    setVista('citas')
+  }
+
   if (cargando) {
     return <p style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--ta-text-muted)' }}>Cargando...</p>
   }
@@ -128,7 +135,9 @@ function App() {
             ? ['Contactos', contactoSeleccionado ? 'Editar' : 'Nuevo']
             : vista === 'interacciones'
               ? ['Interacciones']
-              : ['Propiedades', propiedadSeleccionada ? 'Editar' : 'Nueva']
+              : vista === 'citas'
+                ? ['Citas']
+                : ['Propiedades', propiedadSeleccionada ? 'Editar' : 'Nueva']
 
   return (
     <div>
@@ -140,6 +149,7 @@ function App() {
         onHome={irAlBuscador}
         onIrAContactos={irAContactos}
         onIrAInteracciones={irAInteracciones}
+        onIrACitas={irACitas}
         onVerPerfil={irAlPerfil}
         onLogout={handleLogout}
       />
@@ -167,6 +177,10 @@ function App() {
 
       <div style={{ display: vista === 'interacciones' ? 'block' : 'none' }}>
         <ListadoInteracciones refreshKey={listadoInteraccionesVersion} />
+      </div>
+
+      <div style={{ display: vista === 'citas' ? 'block' : 'none' }}>
+        <ListadoCitas refreshKey={listadoCitasVersion} />
       </div>
 
       {vista === 'form' && (
