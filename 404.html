@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirigiendo...</title>
+    <script>
+      // Sesión 20 (17 jul 2026): SPA fallback para GitHub Pages — no
+      // soporta rewrites de servidor, así que una URL directa a /p/:id
+      // (sin pasar por la app, como la que se comparte por WhatsApp) cae
+      // en el 404 de GitHub antes de que React cargue. Técnica estándar
+      // (rafgraph/spa-github-pages): este 404.html redirige a index.html
+      // codificando la ruta real en la query string; index.html la
+      // restaura con history.replaceState antes de montar React, así el
+      // chequeo de window.location.pathname en main.jsx ve la ruta
+      // correcta.
+      var ruta = location.pathname + location.search + location.hash
+      location.replace('/index.html?redirect=' + encodeURIComponent(ruta))
+    </script>
+  </head>
+  <body></body>
+</html>
