@@ -17,11 +17,15 @@
 //   (nuevo prop `propiedadTitulo`, pasado desde PropiedadForm.jsx).
 // Timestamp: 2026-07-13, 21:41 hrs
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
-import ContactoForm from '../../contactos/ContactoForm'
 import InteraccionForm from '../../interacciones/InteraccionForm'
 import CitaForm from '../../citas/CitaForm'
+
+// Sesión 17: dinámico (no estático) para que coincida con el lazy() de
+// App.jsx — con un import estático en cualquier archivo, Vite no puede
+// sacar ContactoForm del bundle principal (warning INEFFECTIVE_DYNAMIC_IMPORT).
+const ContactoForm = lazy(() => import('../../contactos/ContactoForm'))
 
 const ROLES = [
   { value: 'vendedor', label: 'Vendedor' },
@@ -660,13 +664,15 @@ export default function FichaColaboradores({ propiedadId, propiedadTitulo }) {
             background: 'rgba(0,0,0,0.4)', overflowY: 'auto',
           }}
         >
-          <ContactoForm
-            contactoInicial={contactoModal}
-            onGuardado={() => {
-              setContactoModal(null)
-              cargarColaboradores() // por si el nombre/rol del contacto cambiaron dentro del modal
-            }}
-          />
+          <Suspense fallback={<p style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--ta-text-muted)' }}>Cargando...</p>}>
+            <ContactoForm
+              contactoInicial={contactoModal}
+              onGuardado={() => {
+                setContactoModal(null)
+                cargarColaboradores() // por si el nombre/rol del contacto cambiaron dentro del modal
+              }}
+            />
+          </Suspense>
         </div>
       )}
 

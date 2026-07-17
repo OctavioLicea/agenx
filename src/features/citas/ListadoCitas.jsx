@@ -13,11 +13,14 @@
 //   como en Interacciones.
 // Timestamp: 2026-07-14, 22:40 hrs
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import CitaForm from './CitaForm'
 import CalendarioCitas from './CalendarioCitas'
-import ContactoForm from '../contactos/ContactoForm'
+// Sesión 17: dinámico (no estático) para que coincida con el lazy() de
+// App.jsx — con un import estático en cualquier archivo, Vite no puede
+// sacar ContactoForm del bundle principal (warning INEFFECTIVE_DYNAMIC_IMPORT).
+const ContactoForm = lazy(() => import('../contactos/ContactoForm'))
 
 const ESTADO_LABEL = { programada: 'Programada', realizada: 'Realizada', cancelada: 'Cancelada', no_asistio: 'No asistió' }
 
@@ -393,10 +396,12 @@ export default function ListadoCitas({ refreshKey = 0 }) {
 
       {contactoModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.4)', overflowY: 'auto' }}>
-          <ContactoForm
-            contactoInicial={contactoModal}
-            onGuardado={() => setContactoModal(null)}
-          />
+          <Suspense fallback={<p style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--ta-text-muted)' }}>Cargando...</p>}>
+            <ContactoForm
+              contactoInicial={contactoModal}
+              onGuardado={() => setContactoModal(null)}
+            />
+          </Suspense>
         </div>
       )}
     </div>
