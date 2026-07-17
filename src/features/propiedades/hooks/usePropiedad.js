@@ -77,6 +77,9 @@ export const PROPIEDAD_VACIA = {
   ficha_completa: false,
   ficha: FICHA_DEFAULT,
   redes_sociales: [],
+  // Sesión 20 (17 jul 2026): página pública de presentación — apagado por
+  // default, Nydia decide explícitamente cuáles propiedades publicar.
+  publicado: false,
 }
 
 // Whitelist de columnas REALES de tuasesor.propiedades. Cualquier otra
@@ -87,7 +90,7 @@ const COLUMNAS_PROPIEDADES = [
   'titulo', 'descripcion', 'tipo', 'tipo_otro', 'operacion', 'uso', 'zona', 'precio', 'moneda',
   'recamaras', 'banos', 'estacionamientos', 'm2_construccion', 'm2_terreno',
   'cuota_mantenimiento', 'estado', 'direccion', 'ficha_completa', 'ficha',
-  'redes_sociales', 'lat', 'lng', 'ubicacion_origen',
+  'redes_sociales', 'lat', 'lng', 'ubicacion_origen', 'publicado',
 ]
 
 function construirPayload(propiedad) {

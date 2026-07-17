@@ -322,6 +322,42 @@ export default function FichaBasico({ value, onChange }) {
         <TapButtonGroup label="Estado" options={ESTADOS} value={value.estado} onChange={set('estado')} />
       </GrupoCampos>
 
+      {/* Sesión 20 (17 jul 2026): toggle de página pública. Apagado por
+          default — Nydia decide explícitamente cuáles propiedades
+          publicar. El botón para copiar/compartir la liga vive en el
+          header de la ficha (PropiedadForm.jsx), no aquí. */}
+      <GrupoCampos>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div>
+            <p style={{ fontSize: 14, color: 'var(--ta-text)', margin: 0 }}>Página pública</p>
+            <p style={{ fontSize: 12, color: 'var(--ta-text-muted)', margin: '2px 0 0' }}>
+              {value.publicado
+                ? 'Visible sin login para quien tenga la liga.'
+                : 'Apagada — nadie puede verla todavía.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!!value.publicado}
+            onClick={() => set('publicado')(!value.publicado)}
+            style={{
+              width: 48, height: 28, borderRadius: 14, border: 'none', flexShrink: 0,
+              background: value.publicado ? 'var(--ta-accent)' : 'var(--ta-border)',
+              position: 'relative', cursor: 'pointer',
+            }}
+          >
+            <span
+              style={{
+                position: 'absolute', top: 3, left: value.publicado ? 23 : 3,
+                width: 22, height: 22, borderRadius: '50%', background: 'var(--ta-surface)',
+                transition: 'left 150ms ease-out',
+              }}
+            />
+          </button>
+        </div>
+      </GrupoCampos>
+
       <GrupoCampos>
         <PrecioField
           precio={value.precio}

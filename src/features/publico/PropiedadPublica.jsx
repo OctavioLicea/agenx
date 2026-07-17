@@ -1,0 +1,394 @@
+// src/features/publico/PropiedadPublica.jsx
+// Motivo: FEAT — Sesión 20 (17 jul 2026, pedido de Nydia). Página pública
+//   de presentación por propiedad ("modo presentación"), para mandarle al
+//   cliente un link en vez de solo el PDF.
+//   [Rediseño v2, mismo día]: la v1 (mosaico + mapa lado a lado, paleta
+//   verde/blanco) se sintió plana. Se armó un mockup interactivo (Okta
+//   aprobó) inspirado en dos fichas reales que compartió (Lamudi/
+//   Inmuebles24-style): galería 1 grande + 4 chicas con "+N fotos",
+//   tarjetas de stats con ícono, tarjeta de precio flotante (WhatsApp +
+//   compartir), tarjeta de contacto de Nydia, tarjeta de ubicación con
+//   mapa de Leaflet. Iconografía propia en SVG (mismo patrón que
+//   IconoCerrar/IconoExportar de PropiedadForm.jsx) — nada de emojis.
+//
+//   Accede sin sesión — lee de las vistas públicas (propiedades_publicas,
+//   fotos_propiedad_publicas, perfiles_publicos), que ya vienen filtradas
+//   por `publicado = true` y sin campos sensibles. Nunca toca las tablas
+//   reales.
+//
+//   No usa react-router: el ruteo es manual en main.jsx.
+// Timestamp: 2026-07-17
+
+import { useEffect, useState, useMemo } from 'react'
+import { MapContainer, TileLayer, Marker } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
+import { supabase } from '../../lib/supabaseClient'
+import '../../App.css'
+import './PropiedadPublica.css'
+
+const TIPOS_LABEL = { casa: 'Casa', depto: 'Departamento', terreno: 'Terreno', local: 'Local comercial', otro: 'Otro' }
+const OPERACION_LABEL = { venta: 'Venta', renta: 'Renta' }
+const USO_LABEL = { residencial: 'Residencial', comercial: 'Comercial' }
+const ZONA_LABEL = { saltillo: 'Saltillo', arteaga: 'Arteaga', ramos_arizpe: 'Ramos Arizpe' }
+
+const AMENIDADES_ITEMS = [
+  ['servicios_generales_seguridad', 'seguridad_vigilancia', 'Seguridad y vigilancia'],
+  ['servicios_generales_seguridad', 'estacionamiento_techado_visitas', 'Estacionamiento techado y de visitas'],
+  ['servicios_generales_seguridad', 'elevador', 'Elevador'],
+  ['servicios_generales_seguridad', 'motor_lobby', 'Motor lobby'],
+  ['servicios_generales_seguridad', 'recepcion_paqueteria', 'Recepción de paquetería'],
+  ['recreacion_bienestar', 'alberca_jacuzzi', 'Alberca y jacuzzi'],
+  ['recreacion_bienestar', 'gimnasio', 'Gimnasio'],
+  ['recreacion_bienestar', 'spa_sauna', 'Spa y sauna'],
+  ['recreacion_bienestar', 'roof_garden', 'Roof garden'],
+  ['recreacion_bienestar', 'salon_usos_multiples', 'Salón de usos múltiples'],
+  ['recreacion_bienestar', 'areas_asador_terrazas', 'Áreas de asador (BBQ) y terrazas'],
+  ['recreacion_bienestar', 'salon_juegos', 'Salón de juegos'],
+  ['equipo_interior', 'cocina', 'Cocina equipada'],
+  ['equipo_interior', 'banos', 'Baños equipados'],
+  ['equipo_interior', 'almacenamiento', 'Almacenamiento'],
+  ['equipo_interior', 'climatizacion', 'Climatización'],
+]
+
+function tieneValor(v) {
+  if (v === null || v === undefined) return false
+  if (typeof v === 'string') return v.trim() !== ''
+  return true
+}
+
+function formatearPrecio(precio, moneda) {
+  if (!tieneValor(precio)) return null
+  try {
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: moneda || 'MXN', maximumFractionDigits: 0 }).format(precio)
+  } catch {
+    return `$${precio} ${moneda || 'MXN'}`
+  }
+}
+
+// --- iconos (SVG propio, mismo trazo 1.8 que el resto de la app) ---------
+
+const iconoProps = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
+
+function IconoCama() {
+  return <svg {...iconoProps}><path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7M3 18v2M21 18v2M3 13h18M7 13V9a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v4" /></svg>
+}
+function IconoBano() {
+  return <svg {...iconoProps}><path d="M4 12h16M6 12V6a2 2 0 0 1 2-2h1M6 12v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6M9 20v1M15 20v1" /></svg>
+}
+function IconoAuto() {
+  return <svg {...iconoProps}><path d="M5 17h14M5 17a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM19 17a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0zM3.5 17V12l2-5.5A2 2 0 0 1 7.4 5h9.2a2 2 0 0 1 1.9 1.5L20.5 12v5" /></svg>
+}
+function IconoRegla() {
+  return <svg {...iconoProps}><path d="M3 8h18v8H3zM7 8v3M11 8v3M15 8v3M19 8v3" /></svg>
+}
+function IconoTerreno() {
+  return <svg {...iconoProps}><path d="M3 9l9-6 9 6-9 6-9-6zM3 9v6l9 6 9-6V9" /></svg>
+}
+function IconoBrujula() {
+  return <svg {...iconoProps}><circle cx="12" cy="12" r="9" /><path d="M14.5 9.5l-1.8 5.3-5.2 1.7 1.8-5.3z" /></svg>
+}
+function IconoPin({ width = 20, height = 20 }) {
+  return <svg {...iconoProps} width={width} height={height}><path d="M12 21s-7-6.1-7-11a7 7 0 1 1 14 0c0 4.9-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+}
+function IconoWhatsApp() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.28-1.38a9.87 9.87 0 0 0 4.7 1.2h.01c5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2zm5.79 14.1c-.24.68-1.4 1.3-1.94 1.38-.5.08-1.12.11-1.81-.11-.42-.13-.95-.31-1.64-.61-2.9-1.25-4.79-4.17-4.93-4.36-.14-.19-1.18-1.57-1.18-3 0-1.42.75-2.12 1.01-2.41.27-.29.58-.36.78-.36.19 0 .39.002.56.01.18.008.42-.07.66.5.24.58.83 2.01.9 2.16.07.15.12.33.02.53-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.71 1.17 1.52 1.9 1.05.94 1.93 1.23 2.21 1.37.28.14.44.12.61-.07.16-.19.7-.82.88-1.1.19-.28.37-.23.62-.14.25.09 1.6.75 1.87.89.28.14.46.21.53.32.07.12.07.66-.17 1.34z" />
+    </svg>
+  )
+}
+function IconoCompartir() {
+  return <svg {...iconoProps} width={16} height={16}><circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" /><path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6" /></svg>
+}
+function IconoTelefono() {
+  return <svg {...iconoProps} width={15} height={15}><path d="M4 5c0-.5.5-1 1-1h2.5c.4 0 .8.3.9.7l.9 2.9c.1.4 0 .8-.3 1.1L7.5 10c1 2.2 2.7 3.9 4.9 4.9l1.3-1.5c.3-.3.7-.4 1.1-.3l2.9.9c.4.1.7.5.7.9V18c0 .5-.5 1-1 1h-1C9.3 19 4 13.7 4 6z" /></svg>
+}
+function IconoFoto() {
+  return <svg {...iconoProps} width={16} height={16}><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="11" r="2" /><path d="M21 16l-5-4-4 3-3-2-6 5" /></svg>
+}
+
+// --- galería (1 grande + hasta 4 chicas, "+N" en la última si sobran) ----
+
+function GaleriaFotos({ fotos }) {
+  if (fotos.length === 0) return null
+  const portada = fotos[0]
+  const resto = fotos.slice(1, 5)
+  const extra = fotos.length - 5
+
+  return (
+    <div className="pp-galeria">
+      <div style={{ borderRadius: resto.length > 0 ? '12px 0 0 12px' : 12, overflow: 'hidden' }}>
+        <img src={portada.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', aspectRatio: '4 / 3' }} />
+      </div>
+      {resto.length > 0 && (
+        <div className="pp-galeria-grid">
+          {resto.map((f, i) => {
+            const esUltima = i === resto.length - 1
+            return (
+              <div key={f.url} style={{ position: 'relative', overflow: 'hidden', aspectRatio: '1 / 1' }}>
+                <img src={f.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                {esUltima && extra > 0 && (
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(31,58,44,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: '#fff', fontSize: 13, fontWeight: 500 }}>
+                    <IconoFoto />+{extra}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function crearIconoMapa(acento) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:${acento};border:2px solid #fff;box-shadow:0 0 0 1px ${acento}"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  })
+}
+
+function StatCard({ icono, valor, label }) {
+  return (
+    <div style={{ background: 'var(--ta-bg)', borderRadius: 10, padding: '14px 10px', textAlign: 'center' }}>
+      <span style={{ color: 'var(--ta-accent)' }}>{icono}</span>
+      <p style={{ margin: '6px 0 0', fontSize: 15, fontWeight: 500, color: 'var(--ta-text)' }}>{valor}</p>
+      <p style={{ margin: 0, fontSize: 10.5, color: 'var(--ta-text-muted)' }}>{label}</p>
+    </div>
+  )
+}
+
+export default function PropiedadPublica({ id }) {
+  const [estado, setEstado] = useState('cargando')
+  const [propiedad, setPropiedad] = useState(null)
+  const [fotos, setFotos] = useState([])
+  const [perfil, setPerfil] = useState(null)
+  const [compartido, setCompartido] = useState(false)
+
+  useEffect(() => {
+    let cancelado = false
+    async function cargar() {
+      const { data: propData, error: propError } = await supabase
+        .from('propiedades_publicas')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
+
+      if (cancelado) return
+      if (propError || !propData) {
+        setEstado('no_encontrada')
+        return
+      }
+      setPropiedad(propData)
+
+      const [{ data: fotosData }, { data: perfilData }] = await Promise.all([
+        supabase
+          .from('fotos_propiedad_publicas')
+          .select('storage_path, orden, es_portada')
+          .eq('propiedad_id', id)
+          .order('es_portada', { ascending: false })
+          .order('orden', { ascending: true }),
+        supabase
+          .from('perfiles_publicos')
+          .select('nombre_comercial, nombre_corto, logo_url, color_acento, telefonos')
+          .eq('id', propData.user_id)
+          .maybeSingle(),
+      ])
+
+      if (cancelado) return
+      setFotos(
+        (fotosData || []).map((f) => ({
+          ...f,
+          url: supabase.storage.from('bucket-propiedad-media').getPublicUrl(f.storage_path).data.publicUrl,
+        }))
+      )
+      setPerfil(perfilData)
+      setEstado('ok')
+    }
+    cargar()
+    return () => { cancelado = true }
+  }, [id])
+
+  const acento = perfil?.color_acento || '#1F3A2C'
+  const iconoMapa = useMemo(() => crearIconoMapa(acento), [acento])
+
+  if (estado === 'cargando') {
+    return (
+      <div style={{ minHeight: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+        <p style={{ color: 'var(--ta-text-muted)', fontSize: 14 }}>Cargando...</p>
+      </div>
+    )
+  }
+
+  if (estado === 'no_encontrada') {
+    return (
+      <div style={{ minHeight: '100svh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fff', padding: 24, textAlign: 'center' }}>
+        <p style={{ fontSize: 18, fontWeight: 500, color: 'var(--ta-text)', margin: '0 0 8px' }}>Esta propiedad no está disponible</p>
+        <p style={{ fontSize: 14, color: 'var(--ta-text-muted)', margin: 0 }}>El link puede haber cambiado o la propiedad ya no está publicada.</p>
+      </div>
+    )
+  }
+
+  const marcaTexto = perfil?.nombre_comercial || perfil?.nombre_corto
+  const telefonoPrincipal = (perfil?.telefonos || [])[0]?.numero || null
+  const telefonoWa = telefonoPrincipal ? telefonoPrincipal.replace(/[^\d]/g, '') : null
+  const precioTexto = formatearPrecio(propiedad.precio, propiedad.moneda)
+  const equipamiento = propiedad.ficha?.equipamiento || {}
+  const extras = equipamiento.extras || []
+  const tieneUbicacion = tieneValor(propiedad.lat) && tieneValor(propiedad.lng)
+
+  const amenidadesActivas = AMENIDADES_ITEMS
+    .filter(([grupo, key]) => equipamiento[grupo]?.[key] === true)
+    .map(([, , label]) => label)
+    .concat(extras.filter((e) => tieneValor(e.nombre) && e.tipo === 'si_no' && e.valor === true).map((e) => e.nombre))
+
+  const mensajeWa = encodeURIComponent(`Hola, me interesa la propiedad "${propiedad.titulo || 'Propiedad'}" que vi en tu página.`)
+
+  const compartirLiga = async () => {
+    const url = window.location.href
+    if (navigator.canShare && navigator.canShare({ title: propiedad.titulo, url })) {
+      try {
+        await navigator.share({ title: propiedad.titulo || 'Propiedad', url })
+        return
+      } catch {
+        return // usuario canceló el share sheet
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setCompartido(true)
+      setTimeout(() => setCompartido(false), 2000)
+    } catch {
+      window.prompt('Copia la liga:', url)
+    }
+  }
+
+  return (
+    <div style={{ minHeight: '100svh', background: '#fff' }}>
+      <GaleriaFotos fotos={fotos} />
+
+      <div className="pp-cuerpo">
+        <div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 500, padding: '4px 10px', borderRadius: 6, background: 'var(--ta-bg)', color: 'var(--ta-accent)' }}>
+              {OPERACION_LABEL[propiedad.operacion]}
+            </span>
+            <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: 'var(--ta-bg)', color: 'var(--ta-text-muted)' }}>
+              {propiedad.tipo === 'otro' ? propiedad.tipo_otro : TIPOS_LABEL[propiedad.tipo]}
+            </span>
+          </div>
+
+          <h1 style={{ margin: '0 0 6px', fontSize: 24, fontWeight: 500, color: 'var(--ta-text)', letterSpacing: -0.2, lineHeight: 1.3 }}>
+            {propiedad.titulo || 'Propiedad'}
+          </h1>
+          {propiedad.direccion && (
+            <p style={{ margin: '0 0 20px', fontSize: 13.5, color: 'var(--ta-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <IconoPin width={15} height={15} /> {propiedad.direccion}
+            </p>
+          )}
+
+          <div className="pp-stats" style={{ marginBottom: 24 }}>
+            {tieneValor(propiedad.recamaras) && <StatCard icono={<IconoCama />} valor={propiedad.recamaras} label="Recámaras" />}
+            {tieneValor(propiedad.banos) && <StatCard icono={<IconoBano />} valor={propiedad.banos} label="Baños" />}
+            {tieneValor(propiedad.estacionamientos) && <StatCard icono={<IconoAuto />} valor={propiedad.estacionamientos} label="Estacionamiento" />}
+            {tieneValor(propiedad.m2_construccion) && <StatCard icono={<IconoRegla />} valor={`${propiedad.m2_construccion} m²`} label="Construcción" />}
+            {tieneValor(propiedad.m2_terreno) && <StatCard icono={<IconoTerreno />} valor={`${propiedad.m2_terreno} m²`} label="Terreno" />}
+            {ZONA_LABEL[propiedad.zona] && <StatCard icono={<IconoBrujula />} valor={ZONA_LABEL[propiedad.zona]} label="Zona" />}
+          </div>
+
+          {tieneValor(propiedad.descripcion) && (
+            <div style={{ background: '#fff', border: '0.5px solid var(--ta-border)', borderRadius: 12, padding: '18px 20px', marginBottom: 20 }}>
+              <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 500, color: 'var(--ta-text)' }}>Descripción</p>
+              <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.75, color: 'var(--ta-text-muted)', whiteSpace: 'pre-line' }}>{propiedad.descripcion}</p>
+            </div>
+          )}
+
+          {amenidadesActivas.length > 0 && (
+            <div style={{ background: '#fff', border: '0.5px solid var(--ta-border)', borderRadius: 12, padding: '18px 20px', marginBottom: 20 }}>
+              <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 500, color: 'var(--ta-text)' }}>Amenidades</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', columnGap: 16, rowGap: 8 }}>
+                {amenidadesActivas.map((label) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--ta-text)' }}>
+                    <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--ta-accent)', flexShrink: 0 }} />
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tieneUbicacion && (
+            <div style={{ background: '#fff', border: '0.5px solid var(--ta-border)', borderRadius: 12, overflow: 'hidden' }}>
+              <p style={{ margin: 0, padding: '16px 20px 12px', fontSize: 14, fontWeight: 500, color: 'var(--ta-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: 'var(--ta-accent)' }}><IconoPin width={16} height={16} /></span>Ubicación
+              </p>
+              <div className="pp-mapa">
+                <MapContainer
+                  center={[Number(propiedad.lat), Number(propiedad.lng)]}
+                  zoom={15}
+                  scrollWheelZoom={false}
+                  style={{ height: '100%', width: '100%' }}
+                  attributionControl={false}
+                >
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <Marker position={[Number(propiedad.lat), Number(propiedad.lng)]} icon={iconoMapa} />
+                </MapContainer>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="pp-sidebar">
+          <div style={{ background: '#fff', border: '0.5px solid var(--ta-border)', borderRadius: 12, padding: '20px', marginBottom: 16 }}>
+            {precioTexto && (
+              <p style={{ margin: '0 0 16px', fontSize: 26, fontWeight: 500, color: 'var(--ta-accent)' }}>
+                {precioTexto}{propiedad.operacion === 'renta' ? ' /mes' : ''}
+              </p>
+            )}
+            {telefonoWa && (
+              <a
+                href={`https://wa.me/52${telefonoWa}?text=${mensajeWa}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, height: 46, borderRadius: 10, background: 'var(--ta-accent)', color: 'var(--ta-on-accent)', fontSize: 14, fontWeight: 500, textDecoration: 'none', marginBottom: 8 }}
+              >
+                <IconoWhatsApp />Contactar por WhatsApp
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={compartirLiga}
+              style={{ width: '100%', height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, border: '0.5px solid var(--ta-border)', borderRadius: 10, background: '#fff', color: 'var(--ta-text)', cursor: 'pointer' }}
+            >
+              <IconoCompartir />{compartido ? '¡Copiada!' : 'Compartir'}
+            </button>
+          </div>
+
+          <div style={{ background: '#fff', border: '0.5px solid var(--ta-border)', borderRadius: 12, padding: '18px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {perfil?.logo_url ? (
+                <img src={perfil.logo_url} alt={marcaTexto || 'Logo'} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'contain', flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--ta-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 500, color: 'var(--ta-accent)', flexShrink: 0 }}>
+                  {(marcaTexto || '?').slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div>
+                {marcaTexto && <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--ta-text)' }}>{marcaTexto}</p>}
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--ta-text-muted)' }}>Asesora inmobiliaria</p>
+              </div>
+            </div>
+            {telefonoPrincipal && (
+              <p style={{ margin: '14px 0 0', fontSize: 13, color: 'var(--ta-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <IconoTelefono />{telefonoPrincipal}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

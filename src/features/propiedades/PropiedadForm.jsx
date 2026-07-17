@@ -51,6 +51,17 @@ function validarBasico(propiedad) {
   return faltantes
 }
 
+// Sesión 20 (17 jul 2026): ícono de liga pública (cadena/link) — mismo
+// grosor de trazo (1.8) que el resto de los íconos del header.
+function IconoLigaPublica() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  )
+}
+
 function IconoCerrar() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -259,6 +270,7 @@ export default function PropiedadForm({ propiedadInicial, onGuardado }) {
   const [paso, setPaso] = useState('basico')
   const [camposFaltantes, setCamposFaltantes] = useState([])
   const [mostrarExport, setMostrarExport] = useState(false)
+  const [ligaCopiada, setLigaCopiada] = useState(false)
   const ultimoGuardado = useRef(JSON.stringify(propiedad))
 
   const idxActual = PASOS.findIndex((p) => p.key === paso)
@@ -319,6 +331,22 @@ export default function PropiedadForm({ propiedadInicial, onGuardado }) {
     setMostrarExport(true)
   }
 
+  // Sesión 20 (17 jul 2026): copia la liga pública (/p/:id) al portapapeles.
+  // Solo aparece cuando propiedad.publicado es true — el toggle vive en
+  // FichaBasico.jsx. Feedback visual simple (cambia el ícono 2s), mismo
+  // criterio "sin dependencias nuevas" del resto del proyecto.
+  const copiarLigaPublica = async () => {
+    const url = `https://tuasesor.eventosytech.com/p/${propiedad.id}`
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      window.prompt('Copia la liga:', url)
+      return
+    }
+    setLigaCopiada(true)
+    setTimeout(() => setLigaCopiada(false), 2000)
+  }
+
   return (
     <div style={{ background: 'var(--ta-bg)', display: 'flex', justifyContent: 'center', minHeight: 'calc(100vh - 56px)' }}>
       <div style={{ width: '100%', maxWidth: 480, background: 'var(--ta-surface)', display: 'flex', flexDirection: 'column' }}>
@@ -354,6 +382,22 @@ export default function PropiedadForm({ propiedadInicial, onGuardado }) {
             >
               <IconoExportar />
             </button>
+            {propiedad.publicado && !bloqueado && (
+              <button
+                type="button"
+                onClick={copiarLigaPublica}
+                aria-label="Copiar liga pública"
+                title={ligaCopiada ? '¡Copiada!' : 'Copiar liga pública'}
+                style={{
+                  width: 32, height: 32, flexShrink: 0, border: 'none', borderRadius: 8,
+                  background: ligaCopiada ? 'var(--ta-accent)' : 'var(--ta-bg)',
+                  color: ligaCopiada ? 'var(--ta-on-accent)' : 'var(--ta-text-muted)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                }}
+              >
+                <IconoLigaPublica />
+              </button>
+            )}
             <button
               type="button"
               onClick={cerrar}

@@ -2,9 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tuasesor</title>
+    <script>
+      // Sesión 20: contraparte de public/404.html — si venimos de ahí,
+      // restaura la ruta real (/p/:id) ANTES de que main.jsx la revise.
+      (function () {
+        var parametros = new URLSearchParams(location.search)
+        var redirect = parametros.get('redirect')
+        if (redirect) {
+          history.replaceState(null, '', redirect)
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
