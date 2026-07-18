@@ -9,7 +9,7 @@
 
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import logoTuAsesor from '../../assets/branding/logo-cuadros-verde-texto-dorado.svg'
+import logoTuAsesor from '../../assets/logo-cuadros-verde-texto-dorado.png' // 17 jul, rebranding — antes branding/*.svg (diseño viejo)
 import loginBg from '../../assets/login-bg.jpg'
 import FondoOrganicoLogin from '../../components/FondoOrganicoLogin'
 

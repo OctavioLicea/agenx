@@ -1,0 +1,64 @@
+/* src/features/publico/temas/estandar/estandar.css */
+/* Motivo: Sesión 18 (16 jul, mockup aprobado por Okta), reubicado el 17
+   jul como parte del tema "Estándar" del sistema de temas. Galería 1
+   grande + 4 chicas, cuerpo en 2 columnas (contenido + sidebar de
+   precio/contacto) que se apila en móvil. Reglas puntuales aquí porque
+   las media queries no se pueden expresar en style={{}}. */
+
+.pp-galeria {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 6px;
+  padding: 20px 20px 0;
+}
+
+.pp-galeria-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.pp-cuerpo {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 24px;
+  align-items: start;
+  padding: 24px 20px 40px;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.pp-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.pp-mapa {
+  aspect-ratio: 16 / 8;
+}
+
+.pp-sidebar {
+  position: sticky;
+  top: 20px;
+}
+
+@media (max-width: 760px) {
+  .pp-galeria {
+    grid-template-columns: 1fr;
+    padding: 0;
+  }
+  .pp-galeria-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .pp-cuerpo {
+    grid-template-columns: 1fr;
+    padding: 20px 16px 32px;
+  }
+  .pp-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pp-sidebar {
+    position: static;
+  }
+}

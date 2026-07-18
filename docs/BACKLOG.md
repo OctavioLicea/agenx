@@ -8,13 +8,13 @@
 > sueltos anteriores (Sesiones 2 a 9) — esos quedan como archivo
 > histórico, no se vuelven a tocar.
 >
-> Última actualización: Sesión 17, 16 de julio 2026 (confirmaciones de
-> Okta sobre lo de Sesión 16: push hecho, vCard y escáner probados en
-> celular real, `contacto_propiedades` confirmado en uso; se reagrupó
-> rendimiento/ficha técnica/correo predeterminado en una sección de
-> baja prioridad; bundle inicial confirmado en 182.44 kB gzip tras
-> corregir el code-splitting de `ContactoForm`; sigue pendiente la
-> decisión sobre el proyecto de Claude.ai desactualizado).
+> Última actualización: 17 de julio 2026 (página pública: lightbox de
+> fotos + marca de agua + tarjetas de stats más grandes, feedback de
+> Nydia en piloto; sistema de temas seleccionable por asesor construido
+> de punta a punta — Estándar + Elegance —, fix de seguridad urgente en
+> vistas públicas, rebranding del logo de TuAsesor, y tema Elegance
+> iterado por mockup y portado a código real: sidebar fusionado, colores
+> ajustados a la guía, botones de contacto de la asesora).
 
 ---
 
@@ -147,6 +147,8 @@
 - [x] Isotipo guardado en `src/assets/logo-isotipo-tuasesor.png` — confirmado por Okta (Sesión 13).
 - [x] Marca de agua del PDF se ve bien con el ajuste actual — confirmado por Okta (Sesión 13). Pendiente desde Sesión 9, cerrado.
 - [x] `@react-pdf/renderer` instalado — confirmado por Okta (Sesión 13, `npm install` corrido, "up to date", 0 vulnerabilidades).
+- [x] **Rediseño completo (Sesión 18, 16 jul, pedido de Nydia)**: Fotografías pasa a ser la primera sección (antes iba después de precio/stats), cuadrícula uniforme sin distinción portada/galería, límite de fotos subido de 8 a 12. Header fijo (nombre/teléfono/insignia con el logo real de perfil) repetido en ambas páginas. Precio como CTA de cierre en la página 1 ("Más información al [tel]"); salto de página forzado antes de la ficha técnica de la página 2 (stats/dirección/equipamiento), y salto adicional antes de la descripción cuando hay más de 6 fotos o la descripción es más larga que ~media página (heurística por líneas, no caracteres). Bloques que ya no se cortan a la mitad entre páginas (`wrap={false}`): precio CTA, stats+dirección+cuota, tabla de equipamiento. Equipamiento y amenidades pasa de 1 a 2 columnas. Marca de agua chica (isotipo verde de TuAsesor, 30% opacidad, esquina inferior derecha) en cada foto de la ficha.
+- [x] **Favicon (ícono de la pestaña del navegador) cambiado** (Sesión 18): antes era el logo genérico de Vite (nunca se había tocado `public/favicon.svg`), ahora es el isotipo dorado de TuAsesor (`#BC7130`, distinto del verde). Requirió `?v=2` en el `<link>` de `index.html` para forzar al navegador a dejar de usar el favicon cacheado. El isotipo verde del footer del PDF no cambió — se queda como estaba.
 
 ## 🔒 Bóveda de documentos (Vault) — CERRADA (pantalla, envío y PIN — Sesión 11)
 
@@ -157,6 +159,108 @@
 - [ ] **Pendiente de probar con Nydia** (ver abajo): tanto el envío de documentos como el PIN dependen de `mailto:`/`sessionStorage`, que se comportan distinto en el celular real y en producción vs. local.
 - [x] **Tooltip + ícono del botón "Enviar documentos" en `ContactoForm.jsx`** (Sesión 13): el botón solo tenía `aria-label` (invisible para usuarios videntes) y su ícono (sobre + flecha) era casi indistinguible del ícono de correo (mailto) junto a él — Okta reportó que no había forma de saber para qué servía. Se agregó `title` (tooltip nativo al pasar el mouse) a los 4 botones de acción rápida del header (WhatsApp, Llamar, Correo, Enviar documentos), y se rediseñó `IconoEnviarDocs` a un documento con esquina doblada + líneas de movimiento (referencia visual de Okta), distinto del sobre simple.
 - [x] **Escanear documento con la cámara** (Sesión 16, `EscanearDocumento.jsx`, nuevo botón junto a "Elegir archivo..." en `FichaDocumentos.jsx`): abre la cámara directo (`capture="environment"`), muestra la foto con 4 esquinas arrastrables, endereza la perspectiva en vivo (2 triángulos + transformación afín, sin librería nueva — algoritmo prototipado y aprobado por Okta antes de construirlo) y entrega un JPEG que reutiliza el mismo `subirDocumento()` que ya existía. Nivel 2 de 3 discutidos con Okta (cámara + recorte manual); se descartó auto-detección de bordes tipo CamScanner (Nivel 3) por requerir una librería pesada, en contra del principio de cero costo/infra. **Probado en celular real y confirmado por Okta (16 jul)**.
+
+## 🌐 Página pública de presentación por propiedad (Sesión 18, 16 jul) — construida y desplegada
+
+- [x] **Decisión de alcance**: 1 propiedad = 1 página pública (link individual, como el que se manda por WhatsApp), NO un catálogo/marketplace navegable de todas las propiedades de Nydia — eso sigue siendo una pieza más grande y separada (ver Fase 2 abajo, sigue diferida si se decide construirla).
+- [x] Ruta pública `/p/:id` sin login — ruteo manual en `main.jsx` (la app no usa react-router en ningún otro lado; se agregó un chequeo de `window.location.pathname` en vez de sumar la dependencia solo para esta ruta).
+- [x] Fallback de GitHub Pages (`public/404.html` + script en `index.html`, técnica estándar rafgraph/spa-github-pages) — sin esto, abrir el link directo (no navegando desde dentro de la app) daba 404 de GitHub antes de que React cargara.
+- [x] Migración en Supabase: columna `propiedades.publicado` (default `false` — Nydia decide explícitamente cuáles publicar) + 3 vistas públicas (`propiedades_publicas`, `fotos_propiedad_publicas`, `perfiles_publicos`) con `GRANT SELECT` solo a esas vistas, nunca a las tablas reales (que siguen con su RLS de "solo el dueño" de siempre). Las vistas excluyen `historial_propiedad`, `situacion_fiscal_legal` y `comentarios` internos del jsonb `ficha` — mismo criterio "información sensible, oculta por default" que ya usa la ficha PDF.
+- [x] Toggle "Publicar" en `FichaBasico.jsx`, apagado por default.
+- [x] Botón de liga pública en el header de `PropiedadForm.jsx` — copia `tuasesor.eventosytech.com/p/{id}` al portapapeles, solo visible cuando `publicado=true` y la propiedad ya está guardada.
+- [x] `PropiedadPublica.jsx`: galería (1 foto grande + 4 chicas con overlay "+N fotos"), tarjetas de stats con ícono (recámaras/baños/estacionamientos/m² construcción/m² terreno/zona), tarjeta de precio con botón de WhatsApp + "Compartir" (Web Share API con fallback a copiar liga), tarjeta de contacto de Nydia, descripción, amenidades, mapa de Leaflet (mismo patrón ya usado en `FichaMediaUbic.jsx`, sin dependencia nueva). Iconografía propia en SVG, sin emojis.
+- [x] **Rediseño v2** tras mockup interactivo (Okta pidió trabajar con mockups antes de tocar código real, mismo criterio que se va a seguir usando para cambios visuales grandes): paleta blanco + verde bosque (sin el caliza de fondo del resto de la app — pedido explícito, "público de alta plusvalía"), layout inspirado en dos fichas reales que compartió Okta (Lamudi/Inmuebles24-style).
+- [x] **Desplegado a producción** (16 jul, confirmado por Okta).
+- [ ] **Pendiente: seguir mejorando el diseño visual.** Okta, tras ver la v2 en vivo: "se ve mejor, tiene potencial pero aquí lo dejamos" — no hay lista específica de qué falta todavía, retomar con feedback nuevo cuando Okta lo traiga. Probable que valga la pena seguir iterando con mockups antes de tocar el código real, como se hizo esta vez.
+- [ ] Pendiente de probar en celular real y con Nydia.
+
+## 🖼️ Rebranding del logo de TuAsesor (17 jul) — favicon/TopBar/Login/PDF actualizados
+
+- [x] **Isotipo nuevo**: 4 cuadrados en escalera (guía completa en
+  `src/assets/GUIA-DE-ESTILO Logotipo TuAsesor.md` — colores, tipografía
+  Baloo 2, reglas de uso). Variante compacta de 2 cuadros sobre fondo
+  verde carbón para usos de ícono (favicon, avatar) — la de 4 cuadros
+  completa no se lee bien a tamaños chicos.
+- [x] **Favicon**: reemplazado el SVG viejo por PNGs en 4 tamaños
+  (`public/favicon-16/32/64/256.png`, copiados de
+  `src/assets/logo-isotipo-tuasesor-N.png`) — `index.html` actualizado
+  con `<link rel="icon">` por tamaño + `apple-touch-icon`, cache-bust a
+  `?v=3`. `public/favicon.svg` se queda sin usar (no se borró, solo dejó
+  de referenciarse).
+- [x] **Ícono del menú (`TopBar.jsx`)**: import cambiado de
+  `assets/branding/logo-isotipo-dorado.svg` (diseño viejo) a
+  `assets/logo-isotipo-tuasesor.png` (variante compacta nueva).
+- [x] **Logo de la pantalla de login (`LoginForm.jsx`)**: import cambiado
+  de `assets/branding/logo-cuadros-verde-texto-dorado.svg` a
+  `assets/logo-cuadros-verde-texto-dorado.png` (mismo nombre, contenido
+  nuevo — isotipo completo de 4 cuadros + texto "TuAsesor").
+- [x] **Marca de agua del PDF (`ExportaFicha.jsx`)**: ya usaba
+  `assets/logo-isotipo-tuasesor.png` sin cambiar el import — se actualizó
+  sola al reemplazar el archivo. Se guardó backup del isotipo viejo en
+  `logo-isotipo-tuasesor.old.png` (sin usar, solo referencia).
+- [x] **Limpieza de PNGs sueltos sin usar** (Okta, antes de esta sesión):
+  `logo-solido-dorado.png`, `logo-solido-verde.png`, `logo-tuasesor.png`
+  borrados — ya no los importaba nada.
+- [ ] **`src/assets/branding/*.svg` (5 archivos) quedaron sin usar** tras
+  este cambio — nadie los importa ya. No se borraron (fuera del alcance
+  de esta sesión); Okta puede limpiarlos cuando quiera.
+- [x] **Ícono del menú (`TopBar.jsx`) actualizado a vector real**:
+  `branding/logo-isotipo-dorado.svg` que subió Okta es un vector limpio
+  (6 paths, 2 colores reales de marca) — reemplazó al PNG de respaldo.
+- [ ] **Los 2 SVG del logo completo (`branding/logo-cuadros-*.svg`) NO
+  son vectores limpios** — son trazado automático de una imagen (100+
+  paths, decenas de tonos de dorado casi idénticos por anti-aliasing),
+  pesados (117–173 KB c/u vs. ~10 KB de un vector real) y con bordes
+  menos nítidos de cerca. `LoginForm.jsx` se quedó en el PNG (más
+  liviano, ya probado, se ve bien a 220px). Pendiente: si Okta consigue
+  exportar un vector real desde la herramienta de diseño original (no
+  "convertir PNG a SVG"), cambiar el import de `LoginForm.jsx` a ese SVG.
+
+## 🚨 Fix de seguridad urgente: escritura anónima en vistas públicas (17 jul) — RESUELTO
+
+- [x] **Hallazgo** (al verificar la migración de `estilo_pagina_publica`):
+  las 3 vistas públicas (`perfiles_publicos`, `propiedades_publicas`,
+  `fotos_propiedad_publicas`) son "security definer" por diseño (dueño
+  `postgres`, con `bypassrls` — necesario para que `anon` pueda leer
+  filas filtradas por `publicado=true` aunque las tablas reales tengan
+  RLS de "solo el dueño"). El problema: además de `SELECT`, `anon` y
+  `authenticated` tenían también `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE`
+  sobre esas 3 vistas (heredado de un grant amplio a nivel de schema, no
+  algo agregado hoy). Como son vistas simples de una sola tabla, esos
+  comandos se propagan a la tabla real — **bypaseando el RLS por
+  completo**. Cualquier visitante anónimo (sin login, solo con la
+  `anon key` pública del bundle) podía borrar o modificar propiedades,
+  perfiles o fotos reales de Nydia con una petición HTTP directa.
+  Confirmado con `get_advisors` (Supabase) — lint `security_definer_view`
+  en nivel ERROR sobre las 3 vistas.
+- [x] **Corregido**: `REVOKE INSERT, UPDATE, DELETE, TRUNCATE` sobre las
+  3 vistas para `anon` y `authenticated`, dejando únicamente `SELECT`.
+  Verificado con `information_schema.role_table_grants` — no rompe nada,
+  la página pública solo necesitaba lectura.
+- [ ] **Pendiente de revisión más a fondo** (no urgente, pero real): el
+  grant amplio parece venir de un `ALTER DEFAULT PRIVILEGES` a nivel de
+  todo el schema `tuasesor` que le da `INSERT/UPDATE/DELETE/TRUNCATE` a
+  `anon` y `authenticated` en CUALQUIER tabla/vista nueva por default.
+  En las tablas reales no es explotable porque el RLS de "solo el dueño"
+  las protege — pero vale la pena, en una sesión dedicada a seguridad,
+  revisar ese default y dejarlo más restrictivo para que un futuro objeto
+  nuevo no repita el mismo hueco sin que nadie se dé cuenta.
+
+## 🎨 Sistema de temas para la página pública (17 jul) — CONSTRUIDO, en revisión visual
+
+- [x] **Decisión de producto**: la página pública deja de ser un solo diseño — se vuelve un sistema de temas seleccionable por asesor (`perfiles.estilo_pagina_publica`, un tema a la vez por asesor). Arrancamos con 2: **Estándar** (el actual, verde bosque/caliza) y **Elegance** (blanco/negro/dorado, `Playfair Display` + `Montserrat`) — reservado para Nydia mientras sea la única usuaria (`perfiles.acceso_tema_elegante`).
+- [x] **Arquitectura construida** (17 jul, "parte 1"): `usePropiedadPublica.js` (hook compartido de fetch/formato), `iconos.jsx` + `componentesCompartidos.jsx` (Marca, Lightbox — reusables entre temas), `temas/registro.js` (mapa estilo → componente con `lazy()`, fallback a Estándar), `temas/estandar/PresentacionEstandar.jsx` + `estandar.css` (el diseño actual, movido tal cual, sin cambios visuales). `PropiedadPublica.jsx` quedó como shell delgado. Build y lint verificados limpios.
+- [x] **Columna `perfiles.estilo_pagina_publica` creada** (`text default 'estandar'`, sin `CHECK` — el registro de temas en código decide qué es válido) y agregada a la vista `perfiles_publicos` con su `GRANT SELECT` a `anon` (ver también el fix de seguridad de arriba, encontrado al verificar esta migración).
+- [x] **Selector de tema en `PerfilForm.jsx`** ("Página pública", junto a Marca): autosave igual que color de acento. Estándar siempre visible; Elegance solo aparece si `perfiles.acceso_tema_elegante = true` (columna real, activada a mano por asesor — hoy solo Nydia). Migración aplicada y verificada.
+- [x] **Regla de mockup-primero rota una vez, corregida después** (17 jul): la primera versión de Elegance se construyó directo en código, sin mockup previo — Okta lo notó ("nos faltó discutir primero tu mockup"). A partir de ahí, toda la iteración visual de Elegance se hizo con la herramienta de mockup (10+ rondas) y el código real se tocó hasta el final, ya con el diseño aprobado. Se mantiene la regla para cambios visuales grandes futuros.
+- [x] **Tema "Elegance" — construido e iterado hasta código final** (17 jul): `temas/elegante/PresentacionElegante.jsx` + `elegante.css`. Header con logo de TuAsesor + fecha/hora en vivo + "Solicitar Tour" (WhatsApp), botones redondeados (6px) en todo el tema. Carrusel principal (flechas + puntos) + columna de miniaturas, reutiliza el Lightbox compartido. Fila de stats simplificada (sin divisores/cajas por ítem, íconos más grandes) — diverge del diseño con cajas que tenía la primera versión, ajustado tras varias rondas de mockup. Cuerpo en grid 2:1 (carrusel:sidebar, antes 1.6:1). Sidebar: precio + CTAs (WhatsApp / Solicitar ficha técnica) y tarjeta de la asesora **fusionados en una sola tarjeta** con un divisor interno (antes eran dos tarjetas separadas). Foto de Nydia arriba del nombre (apilado, centrado, esquinas redondeadas — antes iban lado a lado). Botones de contacto de la asesora (WhatsApp, Llamar) con fondo negro (`--pe-dark`) e ícono/texto dorado (`--pe-accent`), mismo patrón que el botón "Solicitar Tour" del header. Mapa Leaflet + link "Ver en Google Maps". Color de acento actualizado de `#B8963A` (dorado de marca) a **`#C5A059`**, el que indica `docs/gemini-code-EstiloPaginaPropiedad.md` — contradicción marca-vs-guía que Okta resolvió explícitamente ("usa lo que la guía visual dicte"); el logo de TuAsesor en el header se queda en su dorado de marca (`#B8963A`), sin resolver todavía si debe alinearse también. Playfair Display (500 títulos / 700 precio) + Montserrat cargadas solo cuando este tema está activo. Build + lint verificados limpios tras el port final.
+- [ ] **Botón de contacto "Correo" pendiente**: el mockup final de Elegance mostraba 3 botones de contacto de la asesora (WhatsApp, Llamar, Correo) — en código real solo se construyeron los primeros dos, porque `perfiles_publicos` no expone ningún correo público de la asesora todavía. Depende de la decisión abierta de abajo (exponer el correo real de login vs. campo nuevo de "correo público de contacto"); una vez resuelta, agregar el tercer botón con el mismo estilo (`.pe-contacto-btn`).
+- [ ] **Decisión abierta: ¿de dónde sale el correo de contacto público de la asesora?** Dos opciones sin resolver: (a) exponer el correo real de su cuenta (Supabase Auth, el mismo que usa para login) directo en la página pública, o (b) agregar un campo nuevo tipo "correo público de contacto" en `perfiles` (separado del correo de login, editable, opcional) para no exponer el de acceso al sistema. Bloquea el botón "Correo" de arriba.
+- [ ] **Pendiente de revisar con Okta/Nydia en vivo**: ver el diseño final en `npm run dev` sobre una ficha real (no solo mockup), y confirmar si el botón "Solicitar ficha técnica" debe decir/hacer algo distinto mientras no exista el formulario de leads (Fase 2).
+- [x] **Header de Elegance definido** (mockup de Okta, logo "PRISE" de referencia): el menú completo (Propiedades/Servicios/Nosotros/Contacto) NO se construye — el alcance sigue siendo 1 propiedad = 1 página, no un sitio completo. Esa zona del header se usa para marca "TuAsesor" + logo de Nydia (el logo va a necesitar trabajo aparte para que rime con la estética Elegance) + fecha/hora arriba. Botón "Solicitar Tour" se queda.
+- [x] **CTA "Contactar asesor"/"Solicitar ficha técnica" — se quedan como WhatsApp directo por ahora**, igual que hoy. El formulario que capture el lead directo al CRM (contacto + proceso comercial) le gustó a Okta pero se difiere — **movido a Fase 2** (ver abajo), para cuando se arme el módulo de leads/Proceso Comercial. Implica un INSERT público controlado (RLS, anti-spam) — no es solo visual, hay que diseñarlo con cuidado cuando llegue el momento.
+- [x] **Descartado del mockup de Elegance**: sección "Clientes satisfechos" (logos de aliados — no aplica al negocio de Nydia) y "Recibe novedades exclusivas" (newsletter — implicaría guardar correos sin tener después cómo enviarles nada, en contra de YAGNI).
+- [x] Mapa: se mantiene Leaflet/OpenStreetMap embebido (ya decidido, gratis) + link "Ver en Google Maps" (`google.com/maps?q=lat,lng`, sin API key) — ya construido en `PresentacionElegante.jsx`.
 
 ## 👤 Ficha de usuario (Mi perfil) — CERRADO
 
@@ -172,10 +276,11 @@
 ## 🔒 Fase 2 — backlog diferido
 
 - [ ] **Proceso Comercial (módulo completo)**: vincular propiedad a un proceso ya creado, vista de embudo/kanban, dashboard de funnel/reportes.
+- [ ] **Formulario de leads en la página pública → CRM** (crea contacto + proceso comercial desde una visita anónima, sin login) — decidido 17 jul, parte natural del módulo de Proceso Comercial de arriba. Reemplazaría el WhatsApp directo de "Contactar asesor" en el tema Elegance cuando se construya.
 - [ ] Sistema de tareas/to-do's asociado a Interacciones (formal, no un flag).
 - [ ] Generador de posts para redes sociales con IA.
 - [ ] Dashboard con funnel/reportes general.
-- [ ] Captura pública / liga al cliente.
+- [x] ~~Captura pública / liga al cliente.~~ Construida en Sesión 18 como página individual por propiedad (`/p/:id`, ver sección "🌐 Página pública de presentación" arriba) — ya no es Fase 2. Un catálogo/marketplace navegable de TODAS las propiedades (más grande, con buscador/SEO) sigue diferido si se decide construirlo.
 - [ ] Integración oficial de WhatsApp API (o VoIP para llamadas) — requiere que Nydia cambie cómo opera, no es solo desarrollo.
 - [ ] Módulo de cierre/post-venta.
 - [ ] Chat en lenguaje natural (IA) — 3 capacidades independientes.

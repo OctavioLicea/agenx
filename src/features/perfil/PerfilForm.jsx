@@ -307,6 +307,13 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
   const [subiendoLogo, setSubiendoLogo] = useState(false)
   const logoInputRef = useRef(null)
 
+  // Tema de la página pública (17 jul, sistema de temas) — un tema a la
+  // vez por asesor. `accesoTemaElegante` decide si Elegance aparece como
+  // opción; viene de una columna real (no un hardcode de quién es Nydia
+  // en el código), la activa Okta a mano por asesor en Supabase.
+  const [estiloPaginaPublica, setEstiloPaginaPublica] = useState('estandar')
+  const [accesoTemaElegante, setAccesoTemaElegante] = useState(false)
+
   // Seguridad — PIN de la Bóveda. bovedaPinHash/Salt reflejan lo que hay
   // guardado en BD; el resto es estado local del mini-formulario de
   // configurar/cambiar PIN (nunca visible a la vez que el de "quitar").
@@ -324,7 +331,7 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
 
     supabase
       .from('perfiles')
-      .select('nombre_completo, nombre_corto, nombre_comercial, telefonos, redes_sociales, avatar_url, logo_url, color_acento, boveda_pin_hash, boveda_pin_salt')
+      .select('nombre_completo, nombre_corto, nombre_comercial, telefonos, redes_sociales, avatar_url, logo_url, color_acento, boveda_pin_hash, boveda_pin_salt, estilo_pagina_publica, acceso_tema_elegante')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data, error: fetchError }) => {
@@ -345,6 +352,8 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
           setColorAcento(data.color_acento || COLOR_ACENTO_DEFAULT)
           setBovedaPinHash(data.boveda_pin_hash || null)
           setBovedaPinSalt(data.boveda_pin_salt || null)
+          setEstiloPaginaPublica(data.estilo_pagina_publica || 'estandar')
+          setAccesoTemaElegante(data.acceso_tema_elegante === true)
         }
         setCargando(false)
       })
@@ -569,6 +578,13 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
   const actualizarColorAcento = async (hex) => {
     setColorAcento(hex)
     await supabase.from('perfiles').upsert({ id: user.id, color_acento: hex })
+  }
+
+  // Tema de la página pública: autosave inmediato al elegir, mismo patrón
+  // que el color de acento — no depende del botón "Guardar cambios".
+  const actualizarEstiloPaginaPublica = async (estilo) => {
+    setEstiloPaginaPublica(estilo)
+    await supabase.from('perfiles').upsert({ id: user.id, estilo_pagina_publica: estilo })
   }
 
   const handleGuardar = async (e) => {
@@ -902,6 +918,46 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
                   />
                 </label>
               </div>
+            </div>
+          </div>
+
+          {/* Estilo de la página pública (17 jul, sistema de temas) — un
+              tema a la vez. Elegance solo aparece si accesoTemaElegante
+              viene en true desde la BD (columna real, activada a mano por
+              asesor — no depende de quién esté logueado). */}
+          <div style={{ ...divisorSeccion, background: 'var(--ta-bg)', borderRadius: 12, padding: 16, marginTop: 24 }}>
+            <p style={{ ...encabezadoSeccion, marginBottom: 4 }}>Página pública</p>
+            <p style={{ margin: '0 0 14px', fontSize: 11, color: 'var(--ta-text-muted)' }}>
+              Estilo visual de la ficha que ven tus clientes en el link público de cada propiedad.
+            </p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => actualizarEstiloPaginaPublica('estandar')}
+                style={{
+                  flex: '1 1 140px', textAlign: 'left', padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                  border: estiloPaginaPublica === 'estandar' ? '1.5px solid var(--ta-accent)' : '0.5px solid var(--ta-border)',
+                  background: '#fff',
+                }}
+              >
+                <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 500, color: 'var(--ta-text)' }}>Estándar</p>
+                <p style={{ margin: 0, fontSize: 11, color: 'var(--ta-text-muted)' }}>Verde y caliza, el de siempre</p>
+              </button>
+
+              {accesoTemaElegante && (
+                <button
+                  type="button"
+                  onClick={() => actualizarEstiloPaginaPublica('elegante')}
+                  style={{
+                    flex: '1 1 140px', textAlign: 'left', padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                    border: estiloPaginaPublica === 'elegante' ? '1.5px solid var(--ta-accent)' : '0.5px solid var(--ta-border)',
+                    background: '#fff',
+                  }}
+                >
+                  <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 500, color: 'var(--ta-text)' }}>Elegance</p>
+                  <p style={{ margin: 0, fontSize: 11, color: 'var(--ta-text-muted)' }}>Blanco y dorado, look de alta plusvalía</p>
+                </button>
+              )}
             </div>
           </div>
 

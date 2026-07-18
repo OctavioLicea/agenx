@@ -1,0 +1,55 @@
+/* src/features/publico/componentesCompartidos.css */
+/* Motivo: 17 jul 2026, parte 1 del sistema de temas — estilos del
+   Lightbox, compartido por todos los temas de la página pública. */
+
+.pp-lightbox-cerrar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pp-lightbox-cerrar:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.pp-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pp-lightbox-nav:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.pp-lightbox-nav-izq {
+  left: 12px;
+}
+.pp-lightbox-nav-der {
+  right: 12px;
+}
+
+@media (max-width: 640px) {
+  .pp-lightbox-nav,
+  .pp-lightbox-cerrar {
+    width: 40px;
+    height: 40px;
+  }
+}

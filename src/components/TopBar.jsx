@@ -15,7 +15,7 @@
 // Timestamp: 2026-07-13, 22:38 hrs
 
 import { useState, useEffect, useRef } from 'react'
-import logo from '../assets/branding/logo-isotipo-dorado.svg'
+import logo from '../assets/branding/logo-isotipo-dorado.svg' // 17 jul, rebranding — vector nuevo (limpio, 2 colores reales), ya no el PNG de respaldo
 import { usePerfil } from '../hooks/usePerfil'
 
 function formatearFechaHora(fecha) {

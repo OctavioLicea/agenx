@@ -1,0 +1,202 @@
+/* src/features/publico/temas/elegante/elegante.css */
+/* Motivo: FEAT — 17 jul 2026. Tema "Elegance" de la página pública,
+   reservado por asesor (columna perfiles.acceso_tema_elegante).
+   Paleta y tipografía basadas en la guía que compartió Okta
+   (docs/gemini-code-EstiloPaginaPropiedad.md), con el dorado alineado al
+   de la marca nueva de TuAsesor (#B8963A, mismo hex que
+   src/assets/GUIA-DE-ESTILO Logotipo TuAsesor.md) para que el header de
+   esta página (que sí lleva el logo de TuAsesor) no traiga dos dorados
+   distintos. Fuentes cargadas SOLO aquí (@import), nunca en index.html
+   global — así ningún visitante del tema Estándar paga ese costo. */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Montserrat:wght@400;500;600;700&display=swap');
+
+.pe-root {
+  --pe-bg: #ffffff;
+  --pe-text: #212121;
+  --pe-muted: #4a4a4a;
+  --pe-accent: #c5a059;
+  --pe-border: #e0e0e0;
+  --pe-dark: #212121;
+  font-family: 'Montserrat', sans-serif;
+  color: var(--pe-text);
+  background: var(--pe-bg);
+  min-height: 100svh;
+}
+
+.pe-root h1,
+.pe-precio {
+  font-family: 'Playfair Display', serif;
+}
+
+/* Header sticky */
+.pe-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  background: #fff;
+  border-bottom: 0.5px solid var(--pe-border);
+}
+
+.pe-header-marca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.pe-header-fecha {
+  font-size: 12.5px;
+  color: var(--pe-muted);
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.pe-header-cta {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 6px;
+  background: var(--pe-dark);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Galería / carrusel */
+.pe-galeria {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 6px;
+  padding: 20px 24px 0;
+}
+
+.pe-carrusel {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: #f2f2f2;
+}
+
+.pe-galeria-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+/* Cuerpo */
+.pe-cuerpo {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 28px;
+  align-items: start;
+  padding: 28px 24px 48px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.pe-stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.pe-stat {
+  flex: 1;
+  text-align: center;
+}
+
+.pe-stat svg {
+  width: 26px;
+  height: 26px;
+}
+
+.pe-card {
+  background: #fff;
+  border-radius: 6px;
+  padding: 20px 22px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.pe-mapa {
+  aspect-ratio: 16 / 8;
+}
+
+.pe-sidebar {
+  position: sticky;
+  top: 84px;
+}
+
+.pe-agente {
+  border-top: 0.5px solid var(--pe-border);
+  padding-top: 18px;
+  margin-top: 18px;
+  text-align: center;
+}
+
+.pe-agente-foto {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  object-fit: cover;
+  margin: 0 auto 10px;
+  display: block;
+}
+
+.pe-contactos {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.pe-contacto-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 2px;
+  border-radius: 6px;
+  background: var(--pe-dark);
+  color: var(--pe-accent);
+  text-decoration: none;
+  font-size: 9px;
+}
+
+@media (max-width: 760px) {
+  .pe-header {
+    padding: 12px 16px;
+  }
+  .pe-header-fecha {
+    display: none;
+  }
+  .pe-galeria {
+    grid-template-columns: 1fr;
+    padding: 0;
+  }
+  .pe-galeria-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .pe-cuerpo {
+    grid-template-columns: 1fr;
+    padding: 20px 16px 32px;
+  }
+  .pe-sidebar {
+    position: static;
+  }
+}
