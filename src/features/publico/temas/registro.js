@@ -13,6 +13,7 @@ export const TEMA_DEFAULT = 'estandar'
 const TEMAS = {
   estandar: lazy(() => import('./estandar/PresentacionEstandar.jsx')),
   elegante: lazy(() => import('./elegante/PresentacionElegante.jsx')),
+  nocturno: lazy(() => import('./nocturno/PresentacionNocturna.jsx')),
 }
 
 // Si `estilo` no existe en el registro (tema borrado, dato viejo, o el

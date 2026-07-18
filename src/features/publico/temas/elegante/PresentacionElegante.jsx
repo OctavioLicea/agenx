@@ -154,16 +154,18 @@ export default function PresentacionElegante({ datos }) {
   return (
     <div className="pe-root">
       <header className="pe-header">
-        <div className="pe-header-marca">
-          <img src={logoTuAsesor} alt="" style={{ height: 26, width: 'auto' }} />
-          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--pe-text)', letterSpacing: '-0.01em' }}>TuAsesor</span>
+        <div className="pe-header-inner">
+          <div className="pe-header-marca">
+            <img src={logoTuAsesor} alt="" style={{ height: 26, width: 'auto' }} />
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--pe-text)', letterSpacing: '-0.01em' }}>TuAsesor</span>
+          </div>
+          <p className="pe-header-fecha">{fechaHora}</p>
+          {telefonoWa ? (
+            <a className="pe-header-cta" href={`https://wa.me/52${telefonoWa}?text=${mensajeTour}`} target="_blank" rel="noreferrer">
+              Solicitar Tour
+            </a>
+          ) : <span />}
         </div>
-        <p className="pe-header-fecha">{fechaHora}</p>
-        {telefonoWa ? (
-          <a className="pe-header-cta" href={`https://wa.me/52${telefonoWa}?text=${mensajeTour}`} target="_blank" rel="noreferrer">
-            Solicitar Tour
-          </a>
-        ) : <span />}
       </header>
 
       <CarruselGaleria fotos={fotos} logoUrl={perfil?.logo_url} onAbrir={setLightboxIndex} />

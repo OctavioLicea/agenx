@@ -313,6 +313,7 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
   // en el código), la activa Okta a mano por asesor en Supabase.
   const [estiloPaginaPublica, setEstiloPaginaPublica] = useState('estandar')
   const [accesoTemaElegante, setAccesoTemaElegante] = useState(false)
+  const [accesoTemaNocturno, setAccesoTemaNocturno] = useState(false)
 
   // Seguridad — PIN de la Bóveda. bovedaPinHash/Salt reflejan lo que hay
   // guardado en BD; el resto es estado local del mini-formulario de
@@ -331,7 +332,7 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
 
     supabase
       .from('perfiles')
-      .select('nombre_completo, nombre_corto, nombre_comercial, telefonos, redes_sociales, avatar_url, logo_url, color_acento, boveda_pin_hash, boveda_pin_salt, estilo_pagina_publica, acceso_tema_elegante')
+      .select('nombre_completo, nombre_corto, nombre_comercial, telefonos, redes_sociales, avatar_url, logo_url, color_acento, boveda_pin_hash, boveda_pin_salt, estilo_pagina_publica, acceso_tema_elegante, acceso_tema_nocturno')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data, error: fetchError }) => {
@@ -354,6 +355,7 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
           setBovedaPinSalt(data.boveda_pin_salt || null)
           setEstiloPaginaPublica(data.estilo_pagina_publica || 'estandar')
           setAccesoTemaElegante(data.acceso_tema_elegante === true)
+          setAccesoTemaNocturno(data.acceso_tema_nocturno === true)
         }
         setCargando(false)
       })
@@ -956,6 +958,21 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
                 >
                   <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 500, color: 'var(--ta-text)' }}>Elegance</p>
                   <p style={{ margin: 0, fontSize: 11, color: 'var(--ta-text-muted)' }}>Blanco y dorado, look de alta plusvalía</p>
+                </button>
+              )}
+
+              {accesoTemaNocturno && (
+                <button
+                  type="button"
+                  onClick={() => actualizarEstiloPaginaPublica('nocturno')}
+                  style={{
+                    flex: '1 1 140px', textAlign: 'left', padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                    border: estiloPaginaPublica === 'nocturno' ? '1.5px solid var(--ta-accent)' : '0.5px solid var(--ta-border)',
+                    background: '#fff',
+                  }}
+                >
+                  <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 500, color: 'var(--ta-text)' }}>Nocturno</p>
+                  <p style={{ margin: 0, fontSize: 11, color: 'var(--ta-text-muted)' }}>Negro y dorado, minimalista de lujo</p>
                 </button>
               )}
             </div>

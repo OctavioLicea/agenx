@@ -29,18 +29,27 @@
   font-family: 'Playfair Display', serif;
 }
 
-/* Header sticky */
+/* Header sticky — la barra es full-bleed (fondo/borde hasta el borde de
+   la ventana), pero su contenido se limita al mismo ancho que la galería
+   y el cuerpo (980px, ver .pe-galeria/.pe-cuerpo) para que en pantallas
+   anchas todo el tema se sienta como una sola tarjeta consistente, no
+   una franja completa arriba y una columna angosta abajo. */
 .pe-header {
   position: sticky;
   top: 0;
   z-index: 20;
+  background: #fff;
+  border-bottom: 0.5px solid var(--pe-border);
+}
+
+.pe-header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 14px 24px;
-  background: #fff;
-  border-bottom: 0.5px solid var(--pe-border);
+  max-width: 980px;
+  margin: 0 auto;
 }
 
 .pe-header-marca {
@@ -82,6 +91,8 @@
   grid-template-columns: 1.6fr 1fr;
   gap: 6px;
   padding: 20px 24px 0;
+  max-width: 980px;
+  margin: 0 auto;
 }
 
 .pe-carrusel {
@@ -179,7 +190,7 @@
 }
 
 @media (max-width: 760px) {
-  .pe-header {
+  .pe-header-inner {
     padding: 12px 16px;
   }
   .pe-header-fecha {

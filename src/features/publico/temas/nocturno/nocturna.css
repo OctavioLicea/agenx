@@ -1,0 +1,336 @@
+/* src/features/publico/temas/nocturno/nocturna.css */
+/* Motivo: FEAT — 18 jul 2026. Tercer tema de la página pública ("Nocturno"),
+   reservado por asesor (columna perfiles.acceso_tema_nocturno, mismo
+   patrón que perfiles.acceso_tema_elegante). Construido a partir de un
+   mockup interactivo aprobado por Okta (fondo oscuro, acento dorado,
+   tabla de datos junto a la galería, precio/CTA arriba sin scroll).
+
+   TODOS los colores del tema viven en las variables de :root de abajo —
+   nada de hex sueltos en el JSX/CSS de este tema (a pedido explícito de
+   Okta, para poder ajustarlos rápido sin buscar por todo el archivo).
+   Para cambiar la paleta completa, solo hay que tocar este bloque. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+.no-root {
+  /* --- paleta: único lugar donde se definen los colores del tema ---
+     Ajustada 18 jul (feedback de Okta con mockup): de negro+dorado a
+     verde oscuro+dorado. Mismo criterio de siempre — cambiar la paleta
+     completa es tocar solo estas líneas, nada de hex sueltos abajo. */
+  --no-bg: #0c3e2d;
+  --no-surface: #093325;
+  --no-surface-alt: #123f31;
+  --no-text: #e4e3e1;
+  --no-muted: #9cb0a4;
+  --no-accent: #dab447;
+  --no-on-accent: #0c3e2d;
+  --no-border: #3a5e51;
+  --no-border-strong: #3a5e51;
+
+  font-family: 'Inter', sans-serif;
+  color: var(--no-text);
+  background: var(--no-bg);
+  min-height: 100svh;
+}
+
+/* Header */
+.no-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--no-bg);
+  border-bottom: 0.5px solid var(--no-border);
+}
+
+.no-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 24px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.no-header-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.no-header-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: block;
+}
+
+.no-header-avatar-fallback {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--no-surface-alt);
+  color: var(--no-accent);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.no-header-cta {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 6px;
+  background: var(--no-accent);
+  color: var(--no-on-accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Hero: columna de datos + columna de galería, una junto a la otra */
+.no-hero {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 28px;
+  padding: 28px 24px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.no-badge {
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+}
+
+.no-titulo {
+  margin: 0 0 16px;
+  font-weight: 800;
+  font-size: 30px;
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: var(--no-text);
+}
+
+.no-precio {
+  margin: 0 0 22px;
+  font-weight: 700;
+  font-size: 32px;
+  color: var(--no-accent);
+}
+
+.no-tabla {
+  background: var(--no-surface);
+  border-radius: 6px;
+  padding: 4px 18px;
+}
+
+.no-fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 0.5px solid var(--no-border);
+  font-size: 13px;
+}
+
+.no-fila:last-child {
+  border-bottom: none;
+}
+
+.no-fila-label {
+  color: var(--no-muted);
+}
+
+.no-fila-valor {
+  font-weight: 600;
+  color: var(--no-text);
+}
+
+.no-ctas {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.no-cta-principal {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  border-radius: 6px;
+  background: var(--no-accent);
+  color: var(--no-on-accent);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.no-cta-secundaria {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  border-radius: 6px;
+  border: 1px solid var(--no-accent);
+  color: var(--no-accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Galería */
+.no-carrusel {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: var(--no-surface-alt);
+}
+
+.no-filmstrip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.no-filmstrip-flecha {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--no-accent);
+  cursor: pointer;
+  display: flex;
+  padding: 4px;
+}
+
+.no-filmstrip-item {
+  flex: 1;
+  aspect-ratio: 1.4 / 1;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--no-surface);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+}
+
+.no-filmstrip-item.activo {
+  border: 1px solid var(--no-accent);
+}
+
+.no-filmstrip-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Ubicación (vitrina chica, no interactiva — enlaza a Google Maps) */
+.no-ubicacion {
+  margin-top: 16px;
+  background: var(--no-surface);
+  border-radius: 6px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.no-ubicacion-mapa {
+  width: 76px;
+  height: 56px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--no-surface-alt);
+  position: relative;
+  pointer-events: none;
+}
+
+.no-ubicacion-texto p {
+  margin: 0;
+}
+
+/* Amenidades */
+.no-amenidades {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.no-chip {
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 0.5px solid var(--no-border-strong);
+  color: var(--no-text);
+}
+
+/* Cuerpo — secciones a ancho completo debajo del hero */
+.no-cuerpo {
+  padding: 0 24px 48px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.no-card {
+  background: var(--no-surface);
+  border-radius: 6px;
+  padding: 20px 22px;
+  margin-bottom: 20px;
+}
+
+.no-card-titulo {
+  margin: 0 0 10px;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--no-accent);
+}
+
+.no-card-texto {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: var(--no-muted);
+  white-space: pre-line;
+}
+
+@media (max-width: 760px) {
+  .no-header-inner {
+    padding: 12px 16px;
+  }
+  .no-hero {
+    grid-template-columns: 1fr;
+    padding: 20px 16px;
+    gap: 20px;
+  }
+  .no-cuerpo {
+    padding: 0 16px 32px;
+  }
+}
