@@ -18,9 +18,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
-import { Marca, Lightbox } from '../../componentesCompartidos'
+import { Marca, Lightbox, ModalQR } from '../../componentesCompartidos'
 import { resetBoton, crearIconoMapa } from '../../utilidadesUI'
-import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoTelefono, IconoFoto } from '../../iconos'
+import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoFoto } from '../../iconos'
 import logoTuAsesor from '../../../../assets/branding/logo-isotipo-dorado.svg'
 import './elegante.css'
 
@@ -113,6 +113,7 @@ function CarruselGaleria({ fotos, logoUrl, onAbrir }) {
                 style={{ ...resetBoton, position: 'relative', overflow: 'hidden', borderRadius: 4, aspectRatio: '1 / 1', outline: indiceReal === indice ? '2px solid var(--pe-accent)' : 'none' }}
               >
                 <img src={f.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                <Marca logoUrl={logoUrl} maxAncho={36} />
                 {esUltima && extra > 0 && (
                   <div style={{ position: 'absolute', inset: 0, background: 'rgba(33,33,33,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: '#fff', fontSize: 12, fontWeight: 500 }}>
                     <IconoFoto />+{extra}
@@ -142,9 +143,11 @@ export default function PresentacionElegante({ datos }) {
     propiedad, fotos, perfil,
     marcaTexto, telefonoPrincipal, telefonoWa, precioTexto,
     tieneUbicacion, amenidadesActivas, mensajeWa,
+    compartido, compartirLiga,
   } = datos
 
   const [lightboxIndex, setLightboxIndex] = useState(null)
+  const [mostrarQR, setMostrarQR] = useState(false)
   const fechaHora = useRelojEnVivo()
   const iconoMapa = useMemo(() => crearIconoMapa('#B8963A'), [])
 
@@ -283,6 +286,28 @@ export default function PresentacionElegante({ datos }) {
               </a>
             )}
 
+            {/* 18 jul 2026: fila de Compartir + QR, mismo componente
+                compartido (<ModalQR>) que Estándar y Nocturno — Elegance
+                no tenía ningún botón de compartir todavía. */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={compartirLiga}
+                style={{ flex: 1, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 12.5, fontWeight: 600, letterSpacing: '0.02em', border: '1px solid var(--pe-border)', color: 'var(--pe-text)', background: 'transparent', cursor: 'pointer' }}
+              >
+                <IconoCompartir />{compartido ? '¡Copiada!' : 'Compartir'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMostrarQR(true)}
+                aria-label="Ver código QR de esta propiedad"
+                title="Ver código QR"
+                style={{ width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--pe-border)', color: 'var(--pe-muted)', background: 'transparent', cursor: 'pointer' }}
+              >
+                <IconoQR />
+              </button>
+            </div>
+
             <div className="pe-agente">
               {perfil?.logo_url ? (
                 <img src={perfil.logo_url} alt={marcaTexto || 'Logo'} className="pe-agente-foto" />
@@ -312,6 +337,10 @@ export default function PresentacionElegante({ datos }) {
           </div>
         </div>
       </div>
+
+      {mostrarQR && (
+        <ModalQR url={window.location.href} titulo={propiedad.titulo} onCerrar={() => setMostrarQR(false)} />
+      )}
     </div>
   )
 }

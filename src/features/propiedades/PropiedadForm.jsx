@@ -15,6 +15,10 @@ import FichaMediaUbic from './tabs/FichaMediaUbic'
 import FichaColaboradores from './tabs/FichaColaboradores'
 import FichaTecnica from './tabs/FichaTecnica'
 import FichaDocumentos from './tabs/FichaDocumentos'
+// 18 jul 2026: generador de post de Facebook por plantillas (sin llamar a
+// ningún modelo de IA — ver motivo completo en el propio archivo). Sin
+// dependencias pesadas, no necesita lazy() como ExportaFicha de abajo.
+import GeneradorPostFacebook from './GeneradorPostFacebook'
 // Sesión 16: lazy — ExportaFicha carga @react-pdf/renderer, el paquete
 // más pesado del bundle, y solo hace falta cuando de verdad se exporta
 // un PDF (no en cada apertura del wizard de Propiedades).
@@ -58,6 +62,18 @@ function IconoLigaPublica() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
       <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  )
+}
+
+// 18 jul 2026: ícono de Facebook en su azul de marca (#1877F2) — a pedido
+// de Okta, distinto del resto de los íconos del header (que son
+// monocromos con currentColor) porque así se reconoce de inmediato como
+// "el botón de Facebook" sin tener que leer el tooltip.
+function IconoFacebook() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2">
+      <path d="M22 12.06C22 6.51 17.52 2 12 2S2 6.51 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.45 2.91h-2.33V22c4.78-.76 8.44-4.92 8.44-9.94Z" />
     </svg>
   )
 }
@@ -270,6 +286,7 @@ export default function PropiedadForm({ propiedadInicial, onGuardado }) {
   const [paso, setPaso] = useState('basico')
   const [camposFaltantes, setCamposFaltantes] = useState([])
   const [mostrarExport, setMostrarExport] = useState(false)
+  const [mostrarPostFacebook, setMostrarPostFacebook] = useState(false)
   const [ligaCopiada, setLigaCopiada] = useState(false)
   const ultimoGuardado = useRef(JSON.stringify(propiedad))
 
@@ -335,16 +352,20 @@ export default function PropiedadForm({ propiedadInicial, onGuardado }) {
   // Solo aparece cuando propiedad.publicado es true — el toggle vive en
   // FichaBasico.jsx. Feedback visual simple (cambia el ícono 2s), mismo
   // criterio "sin dependencias nuevas" del resto del proyecto.
+  // [Actualización 2026-07-18, a pedido de Okta]: además de copiar, ahora
+  // abre la página pública en una pestaña nueva — antes copiaba en
+  // silencio y no había forma rápida de ver cómo quedó. `noopener` evita
+  // que la pestaña nueva tenga acceso a `window.opener`.
   const copiarLigaPublica = async () => {
     const url = `https://tuasesor.eventosytech.com/p/${propiedad.id}`
     try {
       await navigator.clipboard.writeText(url)
     } catch {
       window.prompt('Copia la liga:', url)
-      return
     }
     setLigaCopiada(true)
     setTimeout(() => setLigaCopiada(false), 2000)
+    window.open(url, '_blank', 'noopener')
   }
 
   return (
@@ -381,6 +402,21 @@ export default function PropiedadForm({ propiedadInicial, onGuardado }) {
               }}
             >
               <IconoExportar />
+            </button>
+            <button
+              type="button"
+              onClick={() => setMostrarPostFacebook(true)}
+              disabled={guardando || bloqueado}
+              aria-label="Generar post para Facebook"
+              title={bloqueado ? 'Guarda la propiedad primero para generar el post' : 'Generar post para Facebook'}
+              style={{
+                width: 32, height: 32, flexShrink: 0, border: 'none', borderRadius: 8,
+                background: 'var(--ta-bg)', opacity: bloqueado ? 0.4 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: bloqueado ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <IconoFacebook />
             </button>
             {propiedad.publicado && !bloqueado && (
               <button
@@ -489,6 +525,10 @@ export default function PropiedadForm({ propiedadInicial, onGuardado }) {
         <Suspense fallback={<p style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--ta-text-muted)' }}>Cargando...</p>}>
           <ExportaFicha propiedad={propiedad} onCerrar={() => setMostrarExport(false)} />
         </Suspense>
+      )}
+
+      {mostrarPostFacebook && (
+        <GeneradorPostFacebook propiedad={propiedad} onCerrar={() => setMostrarPostFacebook(false)} />
       )}
     </div>
   )

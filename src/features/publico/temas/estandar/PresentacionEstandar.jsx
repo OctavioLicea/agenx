@@ -11,9 +11,9 @@ import { useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
-import { Marca, Lightbox } from '../../componentesCompartidos'
+import { Marca, Lightbox, ModalQR } from '../../componentesCompartidos'
 import { resetBoton, crearIconoMapa } from '../../utilidadesUI'
-import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoCompartir, IconoTelefono, IconoFoto } from '../../iconos'
+import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoFoto } from '../../iconos'
 import './estandar.css'
 
 // --- galería (1 grande + hasta 4 chicas, "+N" en la última si sobran) ----
@@ -88,6 +88,7 @@ export default function PresentacionEstandar({ datos }) {
   } = datos
 
   const [lightboxIndex, setLightboxIndex] = useState(null)
+  const [mostrarQR, setMostrarQR] = useState(false)
   const iconoMapa = useMemo(() => crearIconoMapa(acento), [acento])
 
   return (
@@ -190,13 +191,28 @@ export default function PresentacionEstandar({ datos }) {
                 <IconoWhatsApp />Contactar por WhatsApp
               </a>
             )}
-            <button
-              type="button"
-              onClick={compartirLiga}
-              style={{ width: '100%', height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, border: '0.5px solid var(--ta-border)', borderRadius: 10, background: '#fff', color: 'var(--ta-text)', cursor: 'pointer' }}
-            >
-              <IconoCompartir />{compartido ? '¡Copiada!' : 'Compartir'}
-            </button>
+            {/* 18 jul 2026: fila de Compartir + QR — antes solo estaba
+                "Compartir" (Web Share API con fallback a copiar liga). El
+                botón de QR abre <ModalQR>, útil para tarjetas físicas o
+                mostrarlo en persona sin depender de enviar el link. */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={compartirLiga}
+                style={{ flex: 1, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, border: '0.5px solid var(--ta-border)', borderRadius: 10, background: '#fff', color: 'var(--ta-text)', cursor: 'pointer' }}
+              >
+                <IconoCompartir />{compartido ? '¡Copiada!' : 'Compartir'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMostrarQR(true)}
+                aria-label="Ver código QR de esta propiedad"
+                title="Ver código QR"
+                style={{ width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '0.5px solid var(--ta-border)', borderRadius: 10, background: '#fff', color: 'var(--ta-text-muted)', cursor: 'pointer' }}
+              >
+                <IconoQR />
+              </button>
+            </div>
           </div>
 
           <div style={{ background: '#fff', border: '0.5px solid var(--ta-border)', borderRadius: 12, padding: '18px 20px' }}>
@@ -221,6 +237,10 @@ export default function PresentacionEstandar({ datos }) {
           </div>
         </div>
       </div>
+
+      {mostrarQR && (
+        <ModalQR url={window.location.href} titulo={propiedad.titulo} onCerrar={() => setMostrarQR(false)} />
+      )}
     </div>
   )
 }

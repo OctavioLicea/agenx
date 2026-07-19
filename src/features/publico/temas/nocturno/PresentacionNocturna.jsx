@@ -22,9 +22,9 @@ import { useState } from 'react'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
-import { Marca, Lightbox } from '../../componentesCompartidos'
+import { Marca, Lightbox, ModalQR } from '../../componentesCompartidos'
 import { crearIconoMapa } from '../../utilidadesUI'
-import { IconoWhatsApp, IconoTelefono, IconoFlecha, IconoFoto, IconoPin } from '../../iconos'
+import { IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoFlecha, IconoFoto, IconoPin } from '../../iconos'
 import './nocturna.css'
 
 function FilaDato({ label, valor }) {
@@ -76,6 +76,7 @@ function GaleriaNocturna({ fotos, logoUrl, onAbrir }) {
                 className={`no-filmstrip-item${indiceReal === indice ? ' activo' : ''}`}
               >
                 <img src={f.url} alt="" />
+                <Marca logoUrl={logoUrl} maxAncho={30} />
                 {esUltima && extra > 0 && (
                   <div style={{ position: 'absolute', inset: 0, background: 'rgba(20,19,16,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, color: 'var(--no-text)', fontSize: 11 }}>
                     <IconoFoto />+{extra}
@@ -99,9 +100,11 @@ export default function PresentacionNocturna({ datos }) {
     propiedad, fotos, perfil,
     marcaTexto, telefonoPrincipal, telefonoWa, precioTexto,
     tieneUbicacion, amenidadesActivas, mensajeWa,
+    compartido, compartirLiga,
   } = datos
 
   const [lightboxIndex, setLightboxIndex] = useState(null)
+  const [mostrarQR, setMostrarQR] = useState(false)
   const iconoMapa = crearIconoMapa('var(--no-accent)')
 
   const mensajeTour = encodeURIComponent(`Hola, me gustaría agendar un tour para ver "${propiedad.titulo || 'la propiedad'}".`)
@@ -180,6 +183,21 @@ export default function PresentacionNocturna({ datos }) {
               </a>
             )}
           </div>
+
+          <div className="no-ctas-share">
+            <button type="button" onClick={compartirLiga} className="no-cta-compartir">
+              <IconoCompartir />{compartido ? '¡Copiada!' : 'Compartir'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMostrarQR(true)}
+              aria-label="Ver código QR de esta propiedad"
+              title="Ver código QR"
+              className="no-cta-icono"
+            >
+              <IconoQR />
+            </button>
+          </div>
         </div>
 
         <div>
@@ -245,6 +263,10 @@ export default function PresentacionNocturna({ datos }) {
           </div>
         )}
       </div>
+
+      {mostrarQR && (
+        <ModalQR url={window.location.href} titulo={propiedad.titulo} onCerrar={() => setMostrarQR(false)} />
+      )}
     </div>
   )
 }

@@ -56,6 +56,57 @@ function App() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
+  // 18 jul 2026, a pedido de Okta: `vista` era solo estado de React, sin
+  // ningún registro en el historial del navegador. En celular, el botón
+  // de retroceso del sistema no tiene ninguna entrada de historial propia
+  // de la app a la que volver — sale directo de la PWA/pestaña, así que
+  // había que reabrir todo desde cero. Fix sin agregar react-router (la
+  // app sigue siendo un solo módulo raíz con `vista` como estado interno,
+  // ver nota de ruteo manual en main.jsx): cada cambio de vista real
+  // (nunca los refresh de versión) empuja una entrada al historial vía
+  // `history.pushState`, y un listener de `popstate` restaura `vista` +
+  // la propiedad/contacto seleccionados desde `event.state` cuando el
+  // usuario presiona atrás. `replaceState` al montar deja un punto de
+  // partida ("buscador") para que el primer atrás navegue dentro de la
+  // app en vez de salir de ella.
+  useEffect(() => {
+    window.history.replaceState({ vista: 'buscador', propiedadSeleccionada: null, contactoSeleccionado: null }, '')
+
+    const alRetroceder = (evento) => {
+      const estado = evento.state
+      if (!estado) {
+        setVista('buscador')
+        setPropiedadSeleccionada(null)
+        setContactoSeleccionado(null)
+        return
+      }
+      setVista(estado.vista)
+      setPropiedadSeleccionada(estado.propiedadSeleccionada ?? null)
+      setContactoSeleccionado(estado.contactoSeleccionado ?? null)
+    }
+
+    window.addEventListener('popstate', alRetroceder)
+    return () => window.removeEventListener('popstate', alRetroceder)
+  }, [])
+
+  // Único punto que cambia `vista` + empuja historial — todos los
+  // handlers de navegación de abajo pasan por aquí en vez de llamar
+  // `setVista` directo, para que ninguna navegación nueva se quede sin
+  // registrar en el historial del navegador.
+  const irAVista = (nuevaVista, cambios = {}) => {
+    if ('propiedadSeleccionada' in cambios) setPropiedadSeleccionada(cambios.propiedadSeleccionada)
+    if ('contactoSeleccionado' in cambios) setContactoSeleccionado(cambios.contactoSeleccionado)
+    setVista(nuevaVista)
+    window.history.pushState(
+      {
+        vista: nuevaVista,
+        propiedadSeleccionada: 'propiedadSeleccionada' in cambios ? cambios.propiedadSeleccionada : propiedadSeleccionada,
+        contactoSeleccionado: 'contactoSeleccionado' in cambios ? cambios.contactoSeleccionado : contactoSeleccionado,
+      },
+      ''
+    )
+  }
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     // onAuthStateChange ya actualiza sesion a null automaticamente
@@ -69,22 +120,19 @@ function App() {
   // de tus últimos cambios, aunque sí estuvieran guardados en BD).
   const irAlBuscador = () => {
     setListadoVersion((v) => v + 1)
-    setVista('buscador')
-    setPropiedadSeleccionada(null)
+    irAVista('buscador', { propiedadSeleccionada: null })
   }
 
   const seleccionarPropiedad = (propiedad) => {
-    setPropiedadSeleccionada(propiedad)
-    setVista('form')
+    irAVista('form', { propiedadSeleccionada: propiedad })
   }
 
   const nuevaPropiedad = () => {
-    setPropiedadSeleccionada(null)
-    setVista('form')
+    irAVista('form', { propiedadSeleccionada: null })
   }
 
   const irAlPerfil = () => {
-    setVista('perfil')
+    irAVista('perfil')
   }
 
   const alGuardarPerfil = () => {
@@ -94,34 +142,30 @@ function App() {
 
   const irAContactos = () => {
     setListadoContactosVersion((v) => v + 1)
-    setVista('contactos')
-    setContactoSeleccionado(null)
+    irAVista('contactos', { contactoSeleccionado: null })
   }
 
   const seleccionarContacto = (contacto) => {
-    setContactoSeleccionado(contacto)
-    setVista('contacto-form')
+    irAVista('contacto-form', { contactoSeleccionado: contacto })
   }
 
   const nuevoContacto = () => {
-    setContactoSeleccionado(null)
-    setVista('contacto-form')
+    irAVista('contacto-form', { contactoSeleccionado: null })
   }
 
   const alSalirDeContacto = () => {
     setListadoContactosVersion((v) => v + 1)
-    setVista('contactos')
-    setContactoSeleccionado(null)
+    irAVista('contactos', { contactoSeleccionado: null })
   }
 
   const irAInteracciones = () => {
     setListadoInteraccionesVersion((v) => v + 1)
-    setVista('interacciones')
+    irAVista('interacciones')
   }
 
   const irACitas = () => {
     setListadoCitasVersion((v) => v + 1)
-    setVista('citas')
+    irAVista('citas')
   }
 
   if (cargando) {

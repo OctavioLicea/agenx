@@ -88,7 +88,7 @@ export function usePropiedadPublica(id) {
           .order('orden', { ascending: true }),
         supabase
           .from('perfiles_publicos')
-          .select('nombre_comercial, nombre_corto, logo_url, color_acento, telefonos, estilo_pagina_publica')
+          .select('nombre_comercial, nombre_corto, logo_url, color_acento, telefonos, estilo_pagina_publica, correo_publico')
           .eq('id', propData.user_id)
           .maybeSingle(),
       ])

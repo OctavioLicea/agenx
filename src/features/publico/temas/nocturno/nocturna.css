@@ -197,6 +197,45 @@
   text-decoration: none;
 }
 
+/* 18 jul 2026: fila de Compartir + QR, debajo de los CTA principales —
+   antes este tema no tenía ningún botón de compartir. Mismo componente
+   compartido <ModalQR> que usan Estándar y Elegance. */
+.no-ctas-share {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.no-cta-compartir {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  border-radius: 6px;
+  border: 1px solid var(--no-border-strong);
+  background: transparent;
+  color: var(--no-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.no-cta-icono {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--no-border-strong);
+  background: transparent;
+  color: var(--no-muted);
+  cursor: pointer;
+}
+
 /* Galería */
 .no-carrusel {
   position: relative;

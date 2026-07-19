@@ -138,13 +138,78 @@ function IconoLapiz() {
   )
 }
 
-function IconoImagen() {
+function IconoSubida() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
-      <path d="m21 15-5-5L5 21" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 15.5V4M12 4 8 8M12 4l4 4" />
+      <path d="M4 15.5v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
     </svg>
+  )
+}
+
+// Control de subida de imagen reusado por Logo y Tarjeta de presentación
+// (18 jul, a pedido de Okta — el control anterior, chico y con texto al
+// lado, no se leía como un "subir imagen" estándar). Caja grande con
+// borde punteado cuando está vacía, preview a pantalla completa dentro
+// de la caja cuando ya hay imagen, "Cambiar" como badge visible siempre
+// (no depende de :hover, que no existe en touch) y "Quitar" como link
+// aparte debajo — mismo patrón de acción destructiva que ya usa el resto
+// de la app (texto en --ta-detail, sin ícono).
+function ControlSubidaImagen({ titulo, ayuda, url, subiendo, onElegir, onQuitar, aspectRatio = '16 / 10', objectFit = 'contain' }) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onElegir}
+        disabled={subiendo}
+        aria-label={url ? `Cambiar ${titulo.toLowerCase()}` : `Subir ${titulo.toLowerCase()}`}
+        style={{
+          width: '100%', aspectRatio, borderRadius: 10, padding: 0, cursor: 'pointer',
+          border: url ? '0.5px solid var(--ta-border)' : '1.5px dashed var(--ta-detail)',
+          background: 'var(--ta-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', gap: 6, overflow: 'hidden', position: 'relative',
+        }}
+      >
+        {url ? (
+          <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit }} />
+        ) : (
+          <>
+            <span style={{ color: 'var(--ta-text-muted)', display: 'flex' }}><IconoSubida /></span>
+            <span style={{ fontSize: 12.5, color: 'var(--ta-text-muted)' }}>Haz clic para subir</span>
+          </>
+        )}
+        <div
+          style={{
+            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            opacity: subiendo ? 1 : 0, transition: 'opacity 150ms ease',
+          }}
+        >
+          <span style={{ color: '#fff', fontSize: 12 }}>{subiendo ? 'Subiendo...' : ''}</span>
+        </div>
+        {url && !subiendo && (
+          <span
+            style={{
+              position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.55)',
+              color: '#fff', fontSize: 10.5, fontWeight: 500, padding: '4px 9px', borderRadius: 20,
+            }}
+          >
+            Cambiar
+          </span>
+        )}
+      </button>
+      <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--ta-text)' }}>{titulo}</p>
+      <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--ta-text-muted)' }}>{ayuda}</p>
+      {url && (
+        <button
+          type="button"
+          onClick={onQuitar}
+          style={{ marginTop: 4, border: 'none', background: 'none', color: 'var(--ta-detail)', fontSize: 11, cursor: 'pointer', padding: 0 }}
+        >
+          Quitar
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -295,6 +360,11 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
   const [nombreCompleto, setNombreCompleto] = useState('')
   const [nombreCorto, setNombreCorto] = useState('')
   const [nombreComercial, setNombreComercial] = useState('')
+  // Correo público de contacto (18 jul) — distinto del correo de login
+  // (user.email, con el que se accede al CRM). Es el que ve el cliente en
+  // la página pública; resuelve la decisión abierta que bloqueaba el
+  // botón "Correo" del tema Elegance (ver docs/BACKLOG.md).
+  const [correoPublico, setCorreoPublico] = useState('')
   const [telefonos, setTelefonos] = useState([])
   const [redesSociales, setRedesSociales] = useState([])
   const [avatarUrl, setAvatarUrl] = useState(null)
@@ -306,6 +376,13 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
   const [colorAcento, setColorAcento] = useState(COLOR_ACENTO_DEFAULT)
   const [subiendoLogo, setSubiendoLogo] = useState(false)
   const logoInputRef = useRef(null)
+
+  // Tarjeta de presentación (18 jul) — columna tarjeta_presentacion_url ya
+  // existía reservada desde Sesión 9, sin UI hasta ahora. Mismo patrón de
+  // subida que el logo (mismo bucket, imagen comprimida a PNG).
+  const [tarjetaUrl, setTarjetaUrl] = useState(null)
+  const [subiendoTarjeta, setSubiendoTarjeta] = useState(false)
+  const tarjetaInputRef = useRef(null)
 
   // Tema de la página pública (17 jul, sistema de temas) — un tema a la
   // vez por asesor. `accesoTemaElegante` decide si Elegance aparece como
@@ -332,7 +409,7 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
 
     supabase
       .from('perfiles')
-      .select('nombre_completo, nombre_corto, nombre_comercial, telefonos, redes_sociales, avatar_url, logo_url, color_acento, boveda_pin_hash, boveda_pin_salt, estilo_pagina_publica, acceso_tema_elegante, acceso_tema_nocturno')
+      .select('nombre_completo, nombre_corto, nombre_comercial, correo_publico, telefonos, redes_sociales, avatar_url, logo_url, tarjeta_presentacion_url, color_acento, boveda_pin_hash, boveda_pin_salt, estilo_pagina_publica, acceso_tema_elegante, acceso_tema_nocturno')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data, error: fetchError }) => {
@@ -342,6 +419,7 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
           setNombreCompleto(data.nombre_completo || '')
           setNombreCorto(data.nombre_corto || '')
           setNombreComercial(data.nombre_comercial || '')
+          setCorreoPublico(data.correo_publico || '')
           setTelefonos(
             (data.telefonos || []).map((t) => ({ ...t, _id: crearId() }))
           )
@@ -350,6 +428,7 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
           )
           setAvatarUrl(data.avatar_url || null)
           setLogoUrl(data.logo_url || null)
+          setTarjetaUrl(data.tarjeta_presentacion_url || null)
           setColorAcento(data.color_acento || COLOR_ACENTO_DEFAULT)
           setBovedaPinHash(data.boveda_pin_hash || null)
           setBovedaPinSalt(data.boveda_pin_salt || null)
@@ -575,6 +654,59 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
     await supabase.from('perfiles').upsert({ id: user.id, logo_url: null })
   }
 
+  // Mismo patrón que subirLogo — misma bucket y compresión a PNG. Imagen
+  // por ahora (no PDF), consistente con avatar/logo; si Nydia necesita
+  // subir la tarjeta como PDF se agrega después.
+  const subirTarjeta = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setError('La tarjeta de presentación debe ser una imagen.')
+      return
+    }
+
+    setSubiendoTarjeta(true)
+    setError(null)
+
+    const comprimido = await compressLogoPng(file, 1200)
+    const storagePath = `${user.id}/tarjeta.png`
+
+    const { error: storageError } = await supabase.storage
+      .from(BUCKET_AVATARES)
+      .upload(storagePath, comprimido, { upsert: true, contentType: 'image/png' })
+
+    if (storageError) {
+      setSubiendoTarjeta(false)
+      setError(`No se pudo subir la tarjeta: ${storageError.message}`)
+      return
+    }
+
+    const { data: urlData } = supabase.storage.from(BUCKET_AVATARES).getPublicUrl(storagePath)
+    const urlConVersion = `${urlData.publicUrl}?v=${Date.now()}`
+
+    const { error: dbError } = await supabase
+      .from('perfiles')
+      .upsert({ id: user.id, tarjeta_presentacion_url: urlConVersion })
+
+    setSubiendoTarjeta(false)
+
+    if (dbError) {
+      setError('La tarjeta se subió, pero no se pudo guardar en tu perfil. Intenta de nuevo.')
+      return
+    }
+
+    setTarjetaUrl(urlConVersion)
+  }
+
+  const quitarTarjeta = async () => {
+    const ok = window.confirm('¿Quitar tu tarjeta de presentación?')
+    if (!ok) return
+    setTarjetaUrl(null)
+    await supabase.from('perfiles').upsert({ id: user.id, tarjeta_presentacion_url: null })
+  }
+
   // Color de acento: se guarda al soltar el selector (onChange del <input
   // type="color"> ya dispara solo al confirmar, no en cada frame de arrastre).
   const actualizarColorAcento = async (hex) => {
@@ -715,7 +847,16 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
               onChange={(v) => guardarCampo('nombre_comercial', v, setNombreComercial)}
               placeholder="Trifecta Inmobiliaria"
             />
+            <CampoEditable
+              label="Correo público"
+              value={correoPublico}
+              onChange={(v) => guardarCampo('correo_publico', v, setCorreoPublico)}
+              placeholder="nydia@ejemplo.com"
+            />
           </div>
+          <p style={{ margin: '6px 2px 0', fontSize: 11, color: 'var(--ta-text-muted)' }}>
+            El correo público es el que ven tus clientes (página pública, PDF). Es distinto de {user?.email}, con el que entras al CRM.
+          </p>
 
           <div style={divisorSeccion}>
             <p style={encabezadoSeccion}>Teléfonos</p>
@@ -834,43 +975,23 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
           </div>
 
           {/* Marca — antes deshabilitada con badge "Próximamente". Ahora
-              funcional: logo (usado en el PDF de ficha técnica) y color de
-              acento (guardado, aunque todavía no se aplica al tema en vivo
-              de la app — eso sigue siendo Fase 2). Tarjeta de presentación
-              se queda pendiente. */}
+              funcional: logo (usado en el PDF de ficha técnica), tarjeta de
+              presentación (18 jul, columna reservada desde Sesión 9) y
+              color de acento (guardado, aunque todavía no se aplica al
+              tema en vivo de la app — eso sigue siendo Fase 2). */}
           <div style={{ ...divisorSeccion, background: 'var(--ta-bg)', borderRadius: 12, padding: 16, marginTop: 24 }}>
             <p style={{ ...encabezadoSeccion, marginBottom: 14 }}>Marca</p>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-              <button
-                type="button"
-                onClick={() => logoInputRef.current?.click()}
-                disabled={subiendoLogo}
-                aria-label="Cambiar logo de marca"
-                style={{
-                  width: 64, height: 64, borderRadius: 10, flexShrink: 0,
-                  background: logoUrl ? 'var(--ta-surface)' : 'var(--ta-surface)',
-                  border: '0.5px dashed var(--ta-detail)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'var(--ta-text-muted)', padding: 4, cursor: 'pointer',
-                  overflow: 'hidden', position: 'relative',
-                }}
-              >
-                {logoUrl ? (
-                  <img src={logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                ) : (
-                  <IconoImagen />
-                )}
-                <div
-                  style={{
-                    position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    opacity: subiendoLogo ? 1 : 0, transition: 'opacity 150ms ease',
-                  }}
-                >
-                  <span style={{ color: '#fff', fontSize: 9 }}>{subiendoLogo ? 'Subiendo...' : ''}</span>
-                </div>
-              </button>
+            <div style={{ marginBottom: 20 }}>
+              <ControlSubidaImagen
+                titulo={logoUrl ? 'Logo cargado' : 'Logo'}
+                ayuda="Se usa en el PDF de ficha técnica. Recomendado: PNG con fondo transparente."
+                url={logoUrl}
+                subiendo={subiendoLogo}
+                onElegir={() => logoInputRef.current?.click()}
+                onQuitar={quitarLogo}
+                aspectRatio="1 / 1"
+              />
               <input
                 ref={logoInputRef}
                 type="file"
@@ -878,23 +999,25 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
                 style={{ display: 'none' }}
                 onChange={subirLogo}
               />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: '0 0 4px', fontSize: 13, color: 'var(--ta-text)' }}>
-                  {logoUrl ? 'Logo cargado' : 'Sin logo'}
-                </p>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--ta-text-muted)' }}>
-                  Se usa en el PDF de ficha técnica. Recomendado: PNG con fondo transparente.
-                </p>
-                {logoUrl && (
-                  <button
-                    type="button"
-                    onClick={quitarLogo}
-                    style={{ marginTop: 6, border: 'none', background: 'none', color: 'var(--ta-detail)', fontSize: 11, cursor: 'pointer', padding: 0 }}
-                  >
-                    Quitar logo
-                  </button>
-                )}
-              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <ControlSubidaImagen
+                titulo={tarjetaUrl ? 'Tarjeta de presentación cargada' : 'Tarjeta de presentación'}
+                ayuda="Foto o diseño de tu tarjeta de negocios, para compartir con clientes."
+                url={tarjetaUrl}
+                subiendo={subiendoTarjeta}
+                onElegir={() => tarjetaInputRef.current?.click()}
+                onQuitar={quitarTarjeta}
+                aspectRatio="16 / 9"
+              />
+              <input
+                ref={tarjetaInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={subirTarjeta}
+              />
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
