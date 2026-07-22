@@ -20,7 +20,7 @@ import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
 import { Marca, Lightbox, ModalQR } from '../../componentesCompartidos'
 import { resetBoton, crearIconoMapa } from '../../utilidadesUI'
-import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoFoto } from '../../iconos'
+import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoCorreo, IconoFoto } from '../../iconos'
 import logoTuAsesor from '../../../../assets/branding/logo-isotipo-dorado.svg'
 import './elegante.css'
 
@@ -319,7 +319,7 @@ export default function PresentacionElegante({ datos }) {
               {marcaTexto && <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--pe-text)' }}>{marcaTexto}</p>}
               <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--pe-muted)' }}>Asesora inmobiliaria</p>
 
-              {(telefonoWa || telefonoPrincipal) && (
+              {(telefonoWa || telefonoPrincipal || perfil?.correo_publico) && (
                 <div className="pe-contactos">
                   {telefonoWa && (
                     <a className="pe-contacto-btn" href={`https://wa.me/52${telefonoWa}?text=${mensajeWa}`} target="_blank" rel="noreferrer">
@@ -329,6 +329,13 @@ export default function PresentacionElegante({ datos }) {
                   {telefonoPrincipal && (
                     <a className="pe-contacto-btn" href={`tel:${telefonoPrincipal}`}>
                       <IconoTelefono />Llamar
+                    </a>
+                  )}
+                  {/* 21 jul 2026: tercer botón "Correo" (mailto:), mismo
+                      patrón que WhatsApp/Llamar — perfiles.correo_publico */}
+                  {perfil?.correo_publico && (
+                    <a className="pe-contacto-btn" href={`mailto:${perfil.correo_publico}`}>
+                      <IconoCorreo />Correo
                     </a>
                   )}
                 </div>

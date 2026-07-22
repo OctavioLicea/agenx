@@ -44,6 +44,11 @@ export function IconoCompartir() {
 export function IconoTelefono() {
   return <svg {...iconoProps} width={15} height={15}><path d="M4 5c0-.5.5-1 1-1h2.5c.4 0 .8.3.9.7l.9 2.9c.1.4 0 .8-.3 1.1L7.5 10c1 2.2 2.7 3.9 4.9 4.9l1.3-1.5c.3-.3.7-.4 1.1-.3l2.9.9c.4.1.7.5.7.9V18c0 .5-.5 1-1 1h-1C9.3 19 4 13.7 4 6z" /></svg>
 }
+// 21 jul 2026: botón de contacto "Correo" (mailto:) en los 3 temas —
+// perfiles.correo_publico ya existía como dato, faltaba el botón.
+export function IconoCorreo() {
+  return <svg {...iconoProps} width={15} height={15}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M4 6.5l8 6 8-6" /></svg>
+}
 export function IconoFoto() {
   return <svg {...iconoProps} width={16} height={16}><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="11" r="2" /><path d="M21 16l-5-4-4 3-3-2-6 5" /></svg>
 }

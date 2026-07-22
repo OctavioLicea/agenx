@@ -24,7 +24,7 @@ import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
 import { Marca, Lightbox, ModalQR } from '../../componentesCompartidos'
 import { crearIconoMapa } from '../../utilidadesUI'
-import { IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoFlecha, IconoFoto, IconoPin } from '../../iconos'
+import { IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoCorreo, IconoFlecha, IconoFoto, IconoPin } from '../../iconos'
 import './nocturna.css'
 
 function FilaDato({ label, valor }) {
@@ -183,6 +183,18 @@ export default function PresentacionNocturna({ datos }) {
               </a>
             )}
           </div>
+
+          {/* 21 jul 2026: botón "Correo" (mailto:), mismo patrón que
+              WhatsApp/Llamar arriba — perfiles.correo_publico */}
+          {perfil?.correo_publico && (
+            <a
+              className="no-cta-secundaria"
+              href={`mailto:${perfil.correo_publico}`}
+              style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              <IconoCorreo />Correo
+            </a>
+          )}
 
           <div className="no-ctas-share">
             <button type="button" onClick={compartirLiga} className="no-cta-compartir">

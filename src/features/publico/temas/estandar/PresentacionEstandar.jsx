@@ -13,7 +13,7 @@ import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
 import { Marca, Lightbox, ModalQR } from '../../componentesCompartidos'
 import { resetBoton, crearIconoMapa } from '../../utilidadesUI'
-import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoFoto } from '../../iconos'
+import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoCorreo, IconoFoto } from '../../iconos'
 import './estandar.css'
 
 // --- galería (1 grande + hasta 4 chicas, "+N" en la última si sobran) ----
@@ -229,10 +229,23 @@ export default function PresentacionEstandar({ datos }) {
                 <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--ta-text-muted)' }}>Asesora inmobiliaria</p>
               </div>
             </div>
-            {telefonoPrincipal && (
-              <p style={{ margin: '14px 0 0', fontSize: 13, color: 'var(--ta-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <IconoTelefono />{telefonoPrincipal}
-              </p>
+            {/* 21 jul 2026: teléfono pasa de texto plano a link `tel:`
+                real (mismo criterio que Elegance/Nocturno) + botón de
+                Correo (`mailto:`, perfiles.correo_publico) debajo cuando
+                el asesor lo tiene configurado en Perfil. */}
+            {(telefonoPrincipal || perfil?.correo_publico) && (
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {telefonoPrincipal && (
+                  <a href={`tel:${telefonoPrincipal}`} style={{ fontSize: 13, color: 'var(--ta-text-muted)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                    <IconoTelefono />{telefonoPrincipal}
+                  </a>
+                )}
+                {perfil?.correo_publico && (
+                  <a href={`mailto:${perfil.correo_publico}`} style={{ fontSize: 13, color: 'var(--ta-text-muted)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                    <IconoCorreo />{perfil.correo_publico}
+                  </a>
+                )}
+              </div>
             )}
           </div>
         </div>

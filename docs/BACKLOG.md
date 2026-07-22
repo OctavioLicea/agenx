@@ -8,7 +8,14 @@
 > sueltos anteriores (Sesiones 2 a 9) — esos quedan como archivo
 > histórico, no se vuelven a tocar.
 >
-> Última actualización: 18 de julio 2026 (tema "Nocturno" agregado al
+> Última actualización: 21 de julio 2026 (sesión 21 — corregidas 2 notas
+> obsoletas de "sin commitear" del 18 jul, que ya estaban commiteadas y
+> pusheadas desde ese mismo día; botón de contacto "Correo" construido
+> en los 3 temas de la página pública; y cerrado el hallazgo de
+> seguridad del `ALTER DEFAULT PRIVILEGES` a nivel schema `tuasesor`,
+> ver detalle en la sección de Decisiones abiertas / seguridad).
+>
+> Actualización anterior: 18 de julio 2026 (tema "Nocturno" agregado al
 > sistema de temas de la página pública — commit `dc08fe8`, sin bitácora
 > propia hasta ahora, ver nota abajo; fix de navegación con botón
 > "atrás" del navegador en celular; botón de liga pública ahora también
@@ -247,14 +254,45 @@
   3 vistas para `anon` y `authenticated`, dejando únicamente `SELECT`.
   Verificado con `information_schema.role_table_grants` — no rompe nada,
   la página pública solo necesitaba lectura.
-- [ ] **Pendiente de revisión más a fondo** (no urgente, pero real): el
-  grant amplio parece venir de un `ALTER DEFAULT PRIVILEGES` a nivel de
-  todo el schema `tuasesor` que le da `INSERT/UPDATE/DELETE/TRUNCATE` a
-  `anon` y `authenticated` en CUALQUIER tabla/vista nueva por default.
-  En las tablas reales no es explotable porque el RLS de "solo el dueño"
-  las protege — pero vale la pena, en una sesión dedicada a seguridad,
-  revisar ese default y dejarlo más restrictivo para que un futuro objeto
-  nuevo no repita el mismo hueco sin que nadie se dé cuenta.
+- [x] **Resuelto (21 jul, sesión 21)**: confirmado que el grant amplio venía
+  de un `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA tuasesor`
+  que daba `INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER/MAINTAIN` a
+  `anon` y `authenticated` en cualquier tabla nueva por default (más
+  `SELECT/UPDATE/USAGE` en secuencias). Hallazgo nuevo al confirmarlo:
+  `TRUNCATE` estaba entre los privilegios — y `TRUNCATE` es la única
+  operación DML que Postgres **no filtra con RLS** (no hay caso de uso
+  real desde la app, nadie lo pidió a propósito, era arrastre de un
+  `GRANT ALL`/default sin acotar). No explotable hoy vía la REST API de
+  PostgREST (no expone `TRUNCATE`), pero sin ninguna razón de negocio
+  para existir.
+  **Aplicado** (2 migraciones, `restringir_default_privileges_schema_tuasesor`
+  + `revocar_maintain_y_cerrar_default_anon` — la segunda corrige que
+  `MAINTAIN`, privilegio nuevo de Postgres 17, se había quedado fuera del
+  primer REVOKE): `anon` queda en cero privilegios tanto en las 11 tablas
+  reales como en el default de objetos futuros (nunca tiene casos de uso
+  ahí, todo lo público pasa por las 3 vistas `*_publicas` con `GRANT
+  SELECT` explícito, sin cambio); `authenticated` conserva exactamente
+  `INSERT/SELECT/UPDATE/DELETE` en tablas reales y `SELECT` en las vistas
+  públicas — igual que hoy, sin cambio funcional para la app, solo se le
+  quitó `TRUNCATE/REFERENCES/TRIGGER/MAINTAIN` que no usa.
+  **Incidente propio durante el fix, ya corregido en la misma sesión**: el
+  primer `REVOKE SELECT ... ON ALL TABLES IN SCHEMA tuasesor FROM anon`
+  se aplicó pensando solo en las 11 tablas reales, pero en Postgres "ALL
+  TABLES IN SCHEMA" incluye vistas — le quitó por accidente el `SELECT` a
+  `anon` en las 3 vistas públicas, lo que habría roto `/p/:id` para
+  cualquier visitante sin sesión. Detectado de inmediato al verificar con
+  query, corregido con un `GRANT SELECT` puntual sobre las 3 vistas en la
+  migración `restaurar_select_anon_vistas_publicas`, confirmado con
+  `get_advisors` que no quedó ninguna regresión. **Lección para futuras
+  migraciones de grants en este schema**: nunca usar `ON ALL TABLES IN
+  SCHEMA` cuando el schema mezcla tablas privadas y vistas públicas con
+  necesidades de acceso distintas — apuntar a la lista explícita de
+  tablas o de vistas, nunca al schema completo.
+  Si algún día una tabla nueva necesita `bigserial`/`identity` (hoy todo
+  usa `gen_random_uuid()`, no hay secuencias reales), quien escriba esa
+  migración deberá agregar un `GRANT USAGE ON SEQUENCE ... TO
+  authenticated` explícito — el default de secuencias también quedó en
+  cero para ambos roles.
 
 ## 🎨 Sistema de temas para la página pública (17 jul) — CONSTRUIDO, en revisión visual
 
@@ -264,7 +302,7 @@
 - [x] **Selector de tema en `PerfilForm.jsx`** ("Página pública", junto a Marca): autosave igual que color de acento. Estándar siempre visible; Elegance solo aparece si `perfiles.acceso_tema_elegante = true` (columna real, activada a mano por asesor — hoy solo Nydia). Migración aplicada y verificada.
 - [x] **Regla de mockup-primero rota una vez, corregida después** (17 jul): la primera versión de Elegance se construyó directo en código, sin mockup previo — Okta lo notó ("nos faltó discutir primero tu mockup"). A partir de ahí, toda la iteración visual de Elegance se hizo con la herramienta de mockup (10+ rondas) y el código real se tocó hasta el final, ya con el diseño aprobado. Se mantiene la regla para cambios visuales grandes futuros.
 - [x] **Tema "Elegance" — construido e iterado hasta código final** (17 jul): `temas/elegante/PresentacionElegante.jsx` + `elegante.css`. Header con logo de TuAsesor + fecha/hora en vivo + "Solicitar Tour" (WhatsApp), botones redondeados (6px) en todo el tema. Carrusel principal (flechas + puntos) + columna de miniaturas, reutiliza el Lightbox compartido. Fila de stats simplificada (sin divisores/cajas por ítem, íconos más grandes) — diverge del diseño con cajas que tenía la primera versión, ajustado tras varias rondas de mockup. Cuerpo en grid 2:1 (carrusel:sidebar, antes 1.6:1). Sidebar: precio + CTAs (WhatsApp / Solicitar ficha técnica) y tarjeta de la asesora **fusionados en una sola tarjeta** con un divisor interno (antes eran dos tarjetas separadas). Foto de Nydia arriba del nombre (apilado, centrado, esquinas redondeadas — antes iban lado a lado). Botones de contacto de la asesora (WhatsApp, Llamar) con fondo negro (`--pe-dark`) e ícono/texto dorado (`--pe-accent`), mismo patrón que el botón "Solicitar Tour" del header. Mapa Leaflet + link "Ver en Google Maps". Color de acento actualizado de `#B8963A` (dorado de marca) a **`#C5A059`**, el que indica `docs/gemini-code-EstiloPaginaPropiedad.md` — contradicción marca-vs-guía que Okta resolvió explícitamente ("usa lo que la guía visual dicte"); el logo de TuAsesor en el header se queda en su dorado de marca (`#B8963A`), sin resolver todavía si debe alinearse también. Playfair Display (500 títulos / 700 precio) + Montserrat cargadas solo cuando este tema está activo. Build + lint verificados limpios tras el port final.
-- [ ] **Botón de contacto "Correo" — decisión resuelta, botón todavía sin construir**: se optó por la opción (b), campo nuevo `correo_publico` en `perfiles` (separado del correo de login). El campo ya tiene UI en `PerfilForm.jsx` (18 jul, sin commitear) y ya se lee en `usePropiedadPublica.js` (`perfiles_publicos.correo_publico`). **Falta**: agregar el tercer botón "Correo" (`mailto:`) en los 3 temas con el mismo patrón que WhatsApp/Llamar — no se construyó todavía, solo el dato ya está disponible.
+- [x] **Botón de contacto "Correo" — construido en los 3 temas** (21 jul, sesión 21): nuevo `IconoCorreo` en `iconos.jsx` (sobre, mismo trazo 1.8 que el resto). **Estándar**: el teléfono pasó de texto plano a link `tel:` real + botón `mailto:` debajo, mismo estilo discreto (fila de ícono+texto, sin CTA lleno — Estándar no tenía un botón "Llamar" separado de WhatsApp, se construyó a la par). **Elegance**: tercer botón dentro de `.pe-contactos`, junto a WhatsApp/Llamar, mismo estilo `.pe-contacto-btn`. **Nocturno**: botón secundario `.no-cta-secundaria` (`mailto:`) debajo del row de WhatsApp/Ficha técnica/Llamar. Los 3 solo se muestran si `perfil?.correo_publico` existe. Build verificado limpio (273 módulos, sin errores) y lint sin regresiones (55 errores preexistentes del repo, ninguno en los archivos tocados).
 - [x] **Decisión resuelta: el correo de contacto público es un campo separado del correo de login** (`perfiles.correo_publico`, editable, opcional) — no se expone el correo real de la cuenta de Supabase Auth.
 - [x] **Fix: `.pe-header` y `.pe-galeria` no compartían el `max-width` de `.pe-cuerpo`** (17 jul, encontrado por Okta al probar en `localhost:5173` con la ventana ancha — "no construiste lo que rebotamos con mockups"): `.pe-cuerpo` ya tenía `max-width: 980px; margin: 0 auto`, pero el header y la galería no — en pantallas anchas se estiraban de borde a borde de la ventana mientras el precio/título quedaban en una columna centrada más angosta, rompiendo la sensación de "una sola tarjeta" que sí tenía el mockup (siempre a un ancho fijo). El desfase venía desde la construcción original de Elegance, no se detectó antes porque el mockup nunca se revisó a ancho de ventana completo. Corregido: nuevo `.pe-header-inner` (max-width 980px, centrado) dentro de `.pe-header` (que se queda full-bleed solo para el fondo/borde), y `max-width`/`margin: 0 auto` agregado directo a `.pe-galeria`. Build verificado limpio.
 - [x] **Nota, no es bug**: el título de la propiedad de prueba sale en MAYÚSCULAS en la página pública — verificado directo en Supabase (`propiedades_publicas.titulo = "CASA EN VENTA EN PRIVANZAS DEL CAMPESTRE"`), es el dato tal como se capturó, no una transformación de CSS. Contra la fuente serif del tema Elegance se ve más pesado que en el mockup (que usaba texto en mayúsculas/minúsculas normales a mano) — vale la pena que Nydia sepa que cómo captura el título en `PropiedadForm.jsx` sí se refleja tal cual en la página pública.
@@ -286,7 +324,7 @@
 - [x] **Fix: botón de liga pública en `PropiedadForm.jsx` copiaba pero no abría nada** (reportado por Okta): `copiarLigaPublica()` ahora, además de copiar al portapapeles, abre la página pública en pestaña nueva (`window.open(url, '_blank', 'noopener')`).
 - [x] **Botón de Compartir + QR homologado en los 3 temas** (pedido por Okta — antes solo Estándar tenía "Compartir", Elegance y Nocturno no tenían ningún botón de compartir): nuevo componente compartido `ModalQR` en `componentesCompartidos.jsx` (overlay con imagen de QR generada vía la API pública/gratuita `api.qrserver.com`, sin dependencia nueva, mismo criterio "servicio externo sin costo" que ya usa el mapa OSM/Nominatim) + ícono nuevo `IconoQR` en `iconos.jsx`. Cada tema ahora tiene una fila "Compartir" (reusa `compartirLiga`/`compartido` del hook `usePropiedadPublica`, ya existía) + botón de QR junto a él, con el estilo propio de cada tema (Estándar: botón blanco con borde; Elegance: outline dorado/negro; Nocturno: outline `--no-border-strong`, clases nuevas `.no-ctas-share`/`.no-cta-compartir`/`.no-cta-icono` en `nocturna.css`).
 - [ ] **Pendiente de probar en celular real**: los 3 fixes de arriba solo se verificaron con build/lint limpios en Cowork — falta confirmar visualmente en un celular real (el bug original del botón "atrás" solo se reproduce en navegador móvil, no en desktop).
-- [ ] **Nada de esto está commiteado todavía** — vive en el working directory del repo local de Okta, junto con los cambios sin commitear de `correo_publico`/tarjeta de presentación de más arriba.
+- [x] **Commiteado y pusheado** (confirmado 21 jul, sesión 21): commit `06a5503` ("Nav con historial (boton atras), liga publica en pestana nueva, compartir+QR en los 3 temas, generador de post Facebook por plantillas", 18 jul 22:52) incluye estos 3 fixes + `correo_publico`/tarjeta de presentación de `PerfilForm.jsx` + el generador de posts de Facebook. `git status` limpio, `origin/main` al día — la nota de "sin commitear" de esta sección y de la sección de temas (línea de `correo_publico`) estaba desactualizada, corregida en esta sesión.
 
 ## 📱 Generador de post para Facebook (18 jul) — construido, por plantillas
 
