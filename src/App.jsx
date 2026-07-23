@@ -34,6 +34,16 @@ const PerfilForm = lazy(() => import('./features/perfil/PerfilForm'))
 function App() {
   const [sesion, setSesion] = useState(null)
   const [cargando, setCargando] = useState(true)
+  // 22 jul 2026: candado de acceso — Supabase Auth es por PROYECTO, no
+  // por app (este mismo proyecto también hospeda otra app, "ivent", con
+  // su propio login público). Cualquiera con sesión válida en el
+  // proyecto puede llegar hasta aquí, tenga o no algo que ver con
+  // TuAsesor. `perfiles` es la única fuente de verdad de "esta cuenta sí
+  // es de TuAsesor" — solo se crea en dos lugares: EstablecerPassword.jsx
+  // (invitación aceptada) o a mano en Supabase. Si no existe la fila, o
+  // le faltan nombre/nombre comercial, se cierra la sesión de inmediato
+  // en vez de mostrar el CRM (aunque sea vacío).
+  const [estadoAcceso, setEstadoAcceso] = useState('verificando') // 'verificando' | 'ok' | 'denegado'
   const [vista, setVista] = useState('buscador') // 'buscador' | 'form' | 'perfil' | 'contactos' | 'contacto-form' | 'interacciones' | 'citas'
   const [propiedadSeleccionada, setPropiedadSeleccionada] = useState(null)
   const [contactoSeleccionado, setContactoSeleccionado] = useState(null)
@@ -55,6 +65,38 @@ function App() {
 
     return () => listener.subscription.unsubscribe()
   }, [])
+
+  // Candado de acceso (ver comentario arriba de estadoAcceso): corre cada
+  // vez que hay una sesión nueva, incluyendo al recargar la página con
+  // una sesión ya guardada — no basta con revisarlo solo al momento del
+  // login interactivo.
+  useEffect(() => {
+    // Si no hay sesión no se toca estadoAcceso aquí — un logout normal lo
+    // resetea en handleLogout, y si venimos de que este mismo candado
+    // cerró la sesión, se queda en 'denegado' para poder explicar por qué
+    // en vez de mandar de vuelta al login en silencio.
+    if (!sesion) return
+    let activo = true
+    setEstadoAcceso('verificando')
+    supabase
+      .from('perfiles')
+      .select('nombre_completo, nombre_comercial')
+      .eq('id', sesion.user.id)
+      .maybeSingle()
+      .then(async ({ data, error }) => {
+        if (!activo) return
+        const completo = !error && data && data.nombre_completo && data.nombre_comercial
+        if (completo) {
+          setEstadoAcceso('ok')
+        } else {
+          await supabase.auth.signOut()
+          if (activo) setEstadoAcceso('denegado')
+        }
+      })
+    return () => {
+      activo = false
+    }
+  }, [sesion])
 
   // 18 jul 2026, a pedido de Okta: `vista` era solo estado de React, sin
   // ningún registro en el historial del navegador. En celular, el botón
@@ -110,6 +152,7 @@ function App() {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     // onAuthStateChange ya actualiza sesion a null automaticamente
+    setEstadoAcceso('verificando') // logout normal, no es el candado — no mostrar el mensaje de "sin acceso"
   }
 
   // Siempre sube listadoVersion al volver al buscador — sin importar si
@@ -172,8 +215,22 @@ function App() {
     return <p style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--ta-text-muted)' }}>Cargando...</p>
   }
 
+  if (estadoAcceso === 'denegado') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', background: '#FFFFFF' }}>
+        <p style={{ maxWidth: 340, textAlign: 'center', color: 'var(--ta-text)', fontSize: 14, lineHeight: 1.6 }}>
+          Esta cuenta no tiene acceso a TuAsesor. Si crees que es un error, contacta a quien administra la app.
+        </p>
+      </div>
+    )
+  }
+
   if (!sesion) {
     return <LoginForm onLogin={setSesion} />
+  }
+
+  if (estadoAcceso !== 'ok') {
+    return <p style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--ta-text-muted)' }}>Verificando acceso...</p>
   }
 
   const breadcrumb =

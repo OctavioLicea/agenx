@@ -13,13 +13,28 @@ import App from './App.jsx'
 // migrar a react-router-dom.
 const PropiedadPublica = lazy(() => import('./features/publico/PropiedadPublica.jsx'))
 
+// 22 jul 2026: mismo criterio para el link de invitación de Supabase
+// (Authentication > Users > Invite user). El endpoint /auth/v1/verify de
+// Supabase redirige de vuelta a la raíz con la sesión ya armada y
+// `type=invite` como marcador — a veces en el hash (#...&type=invite,
+// flujo clásico) y a veces en la query (?...&type=invite, si el proyecto
+// tiene PKCE para email links) — se revisan los dos por seguridad, sin
+// asumir cuál usa este proyecto. Si aparece, se manda a
+// EstablecerPassword en vez del CRM normal.
+const EstablecerPassword = lazy(() => import('./features/auth/EstablecerPassword.jsx'))
+
 const matchPropiedadPublica = window.location.pathname.match(/^\/p\/([^/]+)\/?$/)
+const esInvitacion = /type=invite/.test(window.location.hash) || /type=invite/.test(window.location.search)
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     {matchPropiedadPublica ? (
       <Suspense fallback={null}>
         <PropiedadPublica id={matchPropiedadPublica[1]} />
+      </Suspense>
+    ) : esInvitacion ? (
+      <Suspense fallback={null}>
+        <EstablecerPassword />
       </Suspense>
     ) : (
       <App />
