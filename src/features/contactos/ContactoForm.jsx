@@ -11,6 +11,7 @@
 // Timestamp: 2026-07-13, 21:02 hrs
 
 import { useState, useEffect, useRef } from 'react'
+import BotonCerrar from '../../components/BotonCerrar'
 import { useContacto, CONTACTO_VACIO } from './hooks/useContacto'
 import { supabase } from '../../lib/supabaseClient'
 import InteraccionForm from '../interacciones/InteraccionForm'
@@ -686,14 +687,7 @@ export default function ContactoForm({ contactoInicial, onGuardado }) {
                 onCambiarRol={(v) => actualizar({ rol_principal: v })}
               />
             </div>
-            <button
-              type="button"
-              onClick={cerrar}
-              aria-label="Cerrar ficha de contacto"
-              style={{ width: 44, height: 44, flexShrink: 0, border: 'none', borderRadius: 8, background: 'var(--ta-bg)', color: 'var(--ta-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            >
-              ×
-            </button>
+            <BotonCerrar onClick={cerrar} label="Cerrar ficha de contacto" />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

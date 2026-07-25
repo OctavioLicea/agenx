@@ -54,6 +54,17 @@ const FICHA_DEFAULT = {
     servicios: { escuelas: '', hospitales: '', transporte: '' },
   },
   comentarios: [],
+  // 24 jul — campos exclusivos de propiedades en renta. Viven en el jsonb
+  // (no columnas reales): no son filtrables/ordenables en ningún listado,
+  // mismo criterio que situacion_fiscal_legal. requisitos_fisica/moral se
+  // precargan desde la plantilla de perfiles al cambiar operación a renta
+  // (ver cambiarOperacion en FichaBasico.jsx) y quedan editables por ficha.
+  terminos_renta: {
+    meses_deposito: null,
+    meses_minimo_contrato: null,
+    requisitos_fisica: '',
+    requisitos_moral: '',
+  },
 }
 
 export const PROPIEDAD_VACIA = {

@@ -9,6 +9,7 @@
 // Timestamp: 2026-07-08, 22:35 hrs
 
 import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import BotonCerrar from '../../components/BotonCerrar'
 import { usePropiedad, PROPIEDAD_VACIA } from './hooks/usePropiedad'
 import FichaBasico from './tabs/FichaBasico'
 import FichaMediaUbic from './tabs/FichaMediaUbic'
@@ -74,14 +75,6 @@ function IconoFacebook() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="#1877F2">
       <path d="M22 12.06C22 6.51 17.52 2 12 2S2 6.51 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.45 2.91h-2.33V22c4.78-.76 8.44-4.92 8.44-9.94Z" />
-    </svg>
-  )
-}
-
-function IconoCerrar() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 6L6 18M6 6l12 12" />
     </svg>
   )
 }
@@ -434,19 +427,12 @@ export default function PropiedadForm({ propiedadInicial, onGuardado }) {
                 <IconoLigaPublica />
               </button>
             )}
-            <button
-              type="button"
+            <BotonCerrar
               onClick={cerrar}
               disabled={guardando}
-              aria-label="Cerrar ficha de propiedad"
-              style={{
-                width: 32, height: 32, flexShrink: 0, border: 'none', borderRadius: 8,
-                background: 'var(--ta-bg)', color: 'var(--ta-text-muted)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-              }}
-            >
-              <IconoCerrar />
-            </button>
+              label="Cerrar ficha de propiedad"
+              variant="toolbar"
+            />
           </div>
           <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--ta-text-muted)', height: 14, visibility: guardando ? 'visible' : 'hidden' }}>
             Guardando...

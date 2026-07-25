@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
-import { Marca, Lightbox, ModalQR } from '../../componentesCompartidos'
+import { Marca, Lightbox, ModalQR, InvalidarTamanoMapa } from '../../componentesCompartidos'
 import { resetBoton, crearIconoMapa } from '../../utilidadesUI'
 import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoCorreo, IconoFoto } from '../../iconos'
 import logoTuAsesor from '../../../../assets/branding/logo-isotipo-dorado.svg'
@@ -142,9 +142,17 @@ export default function PresentacionElegante({ datos }) {
   const {
     propiedad, fotos, perfil,
     marcaTexto, telefonoPrincipal, telefonoWa, precioTexto,
-    tieneUbicacion, amenidadesActivas, mensajeWa,
+    tieneUbicacion, amenidadesActivas, terminosRenta, mensajeWa,
     compartido, compartirLiga,
   } = datos
+
+  // 24 jul — solo aplica a propiedades en renta con algo capturado.
+  const hayTerminosRenta = propiedad.operacion === 'renta' && (
+    tieneValor(terminosRenta.meses_deposito) ||
+    tieneValor(terminosRenta.meses_minimo_contrato) ||
+    tieneValor(terminosRenta.requisitos_fisica) ||
+    tieneValor(terminosRenta.requisitos_moral)
+  )
 
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [mostrarQR, setMostrarQR] = useState(false)
@@ -231,6 +239,40 @@ export default function PresentacionElegante({ datos }) {
             </div>
           )}
 
+          {hayTerminosRenta && (
+            <div className="pe-card">
+              <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', color: 'var(--pe-text)' }}>Términos de renta</p>
+              {(tieneValor(terminosRenta.meses_deposito) || tieneValor(terminosRenta.meses_minimo_contrato)) && (
+                <div style={{ display: 'flex', gap: 28, marginBottom: 14 }}>
+                  {tieneValor(terminosRenta.meses_deposito) && (
+                    <div>
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--pe-text)' }}>{terminosRenta.meses_deposito}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 10.5, color: 'var(--pe-muted)' }}>Meses de depósito</p>
+                    </div>
+                  )}
+                  {tieneValor(terminosRenta.meses_minimo_contrato) && (
+                    <div>
+                      <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--pe-text)' }}>{terminosRenta.meses_minimo_contrato}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 10.5, color: 'var(--pe-muted)' }}>Meses mín. de contrato</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {tieneValor(terminosRenta.requisitos_fisica) && (
+                <div style={{ marginBottom: tieneValor(terminosRenta.requisitos_moral) ? 14 : 0 }}>
+                  <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 600, color: 'var(--pe-text)' }}>Requisitos — persona física</p>
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.8, color: 'var(--pe-muted)', whiteSpace: 'pre-line' }}>{terminosRenta.requisitos_fisica}</p>
+                </div>
+              )}
+              {tieneValor(terminosRenta.requisitos_moral) && (
+                <div>
+                  <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 600, color: 'var(--pe-text)' }}>Requisitos — persona moral</p>
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.8, color: 'var(--pe-muted)', whiteSpace: 'pre-line' }}>{terminosRenta.requisitos_moral}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {tieneUbicacion && (
             <div className="pe-card" style={{ padding: 0, overflow: 'hidden' }}>
               <p style={{ margin: 0, padding: '18px 22px 12px', fontSize: 13, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', color: 'var(--pe-text)' }}>Ubicación</p>
@@ -244,6 +286,7 @@ export default function PresentacionElegante({ datos }) {
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                   <Marker position={[Number(propiedad.lat), Number(propiedad.lng)]} icon={iconoMapa} />
+                  <InvalidarTamanoMapa />
                 </MapContainer>
               </div>
               <a
@@ -317,7 +360,6 @@ export default function PresentacionElegante({ datos }) {
                 </div>
               )}
               {marcaTexto && <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--pe-text)' }}>{marcaTexto}</p>}
-              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--pe-muted)' }}>Asesora inmobiliaria</p>
 
               {(telefonoWa || telefonoPrincipal || perfil?.correo_publico) && (
                 <div className="pe-contactos">

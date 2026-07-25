@@ -22,7 +22,7 @@ import { useState } from 'react'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
-import { Marca, Lightbox, ModalQR } from '../../componentesCompartidos'
+import { Marca, Lightbox, ModalQR, InvalidarTamanoMapa } from '../../componentesCompartidos'
 import { crearIconoMapa } from '../../utilidadesUI'
 import { IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoCorreo, IconoFlecha, IconoFoto, IconoPin } from '../../iconos'
 import './nocturna.css'
@@ -99,9 +99,17 @@ export default function PresentacionNocturna({ datos }) {
   const {
     propiedad, fotos, perfil,
     marcaTexto, telefonoPrincipal, telefonoWa, precioTexto,
-    tieneUbicacion, amenidadesActivas, mensajeWa,
+    tieneUbicacion, amenidadesActivas, terminosRenta, mensajeWa,
     compartido, compartirLiga,
   } = datos
+
+  // 24 jul — solo aplica a propiedades en renta con algo capturado.
+  const hayTerminosRenta = propiedad.operacion === 'renta' && (
+    tieneValor(terminosRenta.meses_deposito) ||
+    tieneValor(terminosRenta.meses_minimo_contrato) ||
+    tieneValor(terminosRenta.requisitos_fisica) ||
+    tieneValor(terminosRenta.requisitos_moral)
+  )
 
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [mostrarQR, setMostrarQR] = useState(false)
@@ -238,6 +246,7 @@ export default function PresentacionNocturna({ datos }) {
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                   <Marker position={[Number(propiedad.lat), Number(propiedad.lng)]} icon={iconoMapa} />
+                  <InvalidarTamanoMapa />
                 </MapContainer>
               </div>
               <div className="no-ubicacion-texto">
@@ -272,6 +281,26 @@ export default function PresentacionNocturna({ datos }) {
           <div className="no-card">
             <p className="no-card-titulo">Descripción</p>
             <p className="no-card-texto">{propiedad.descripcion}</p>
+          </div>
+        )}
+
+        {hayTerminosRenta && (
+          <div className="no-card">
+            <p className="no-card-titulo">Términos de renta</p>
+            <FilaDato label="Meses de depósito" valor={terminosRenta.meses_deposito} />
+            <FilaDato label="Meses mínimo de contrato" valor={terminosRenta.meses_minimo_contrato} />
+            {tieneValor(terminosRenta.requisitos_fisica) && (
+              <p className="no-card-texto" style={{ marginTop: 10 }}>
+                <span style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--no-text)', marginBottom: 4 }}>Requisitos — persona física</span>
+                {terminosRenta.requisitos_fisica}
+              </p>
+            )}
+            {tieneValor(terminosRenta.requisitos_moral) && (
+              <p className="no-card-texto" style={{ marginTop: 10 }}>
+                <span style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--no-text)', marginBottom: 4 }}>Requisitos — persona moral</span>
+                {terminosRenta.requisitos_moral}
+              </p>
+            )}
           </div>
         )}
       </div>

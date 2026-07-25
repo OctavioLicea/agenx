@@ -114,6 +114,10 @@ export function usePropiedadPublica(id) {
   const precioTexto = propiedad ? formatearPrecio(propiedad.precio, propiedad.moneda) : null
   const equipamiento = propiedad?.ficha?.equipamiento || {}
   const extras = equipamiento.extras || []
+  // 24 jul — términos de renta (meses de depósito/contrato + requisitos
+  // por tipo de persona), capturados en FichaBasico.jsx. Solo tienen
+  // sentido cuando operacion === 'renta'; cada tema decide si los pinta.
+  const terminosRenta = propiedad?.ficha?.terminos_renta || {}
   const tieneUbicacion = propiedad ? tieneValor(propiedad.lat) && tieneValor(propiedad.lng) : false
 
   const amenidadesActivas = AMENIDADES_ITEMS
@@ -156,6 +160,7 @@ export function usePropiedadPublica(id) {
     precioTexto,
     tieneUbicacion,
     amenidadesActivas,
+    terminosRenta,
     mensajeWa,
     compartido,
     compartirLiga,

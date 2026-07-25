@@ -146,6 +146,7 @@
 
 .pe-mapa {
   aspect-ratio: 16 / 8;
+  border: 0.5px solid var(--pe-border);
 }
 
 .pe-sidebar {

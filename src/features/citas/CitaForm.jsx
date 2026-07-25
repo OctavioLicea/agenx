@@ -23,6 +23,7 @@
 import { useState, useEffect } from 'react'
 import { useCita, CITA_VACIA, ESTADOS_CITA } from './hooks/useCita'
 import { supabase } from '../../lib/supabaseClient'
+import BotonCerrar from '../../components/BotonCerrar'
 
 const ESTADO_LABEL = {
   programada: 'Programada',
@@ -403,11 +404,9 @@ export default function CitaForm({ contactoId, contactoNombre, propiedadId, prop
       <div style={{ width: '100%', maxWidth: 400, maxHeight: '90vh', overflowY: 'auto', background: 'var(--ta-surface)', borderRadius: 20, padding: 16 }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" title="Cerrar" style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderRadius: 8 }}>
-            <IconoX />
-          </button>
-          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>{editando ? 'Editar cita' : 'Agendar visita'}</span>
           <span style={{ width: 44 }} />
+          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>{editando ? 'Editar cita' : 'Agendar visita'}</span>
+          <BotonCerrar onClick={onCerrar} />
         </div>
 
         <div style={{ marginBottom: 14 }}>

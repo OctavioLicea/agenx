@@ -7,7 +7,8 @@
 //   junto al título en vez de mezclado con precio/medidas.
 // Timestamp: 2026-07-07, 22:50 hrs
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../../../lib/supabaseClient'
 
 const TIPOS = [
   { value: 'casa', label: 'Casa' },
@@ -271,8 +272,105 @@ function PrecioField({ precio, moneda, onPrecioChange, onMonedaChange }) {
 
 export default function FichaBasico({ value, onChange }) {
   const [nuevaRed, setNuevaRed] = useState({ red: REDES[0], url: '' })
+  const [cargandoPlantillaRenta, setCargandoPlantillaRenta] = useState(false)
 
   const set = (field) => (v) => onChange({ ...value, [field]: v })
+
+  // 24 jul — setter anidado para value.ficha.terminos_renta.*, mismo patrón
+  // que set() pero un nivel más adentro del jsonb.
+  const setTerminoRenta = (campo) => (v) =>
+    onChange({
+      ...value,
+      ficha: {
+        ...value.ficha,
+        terminos_renta: { ...value.ficha?.terminos_renta, [campo]: v },
+      },
+    })
+
+  // Trae la plantilla de requisitos de renta de Mi Perfil. Devuelve null
+  // (sin tronar nada) si falla la sesión o la lectura — quien llama decide
+  // qué hacer si no hay plantilla.
+  const traerPlantillaRenta = async () => {
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData?.user) return null
+    const { data: perfil } = await supabase
+      .from('perfiles')
+      .select('plantilla_requisitos_renta_fisica, plantilla_requisitos_renta_moral')
+      .eq('id', userData.user.id)
+      .maybeSingle()
+    if (!perfil) return null
+    return {
+      requisitos_fisica: perfil.plantilla_requisitos_renta_fisica || '',
+      requisitos_moral: perfil.plantilla_requisitos_renta_moral || '',
+    }
+  }
+
+  // Al cambiar la operación a "renta" por primera vez (sin requisitos ya
+  // escritos en esta ficha, para no pisar una edición previa), se precarga
+  // la plantilla que Nydia configuró en Mi Perfil. Si algo falla al leer
+  // el perfil, simplemente se deja vacío — el cambio de operación no debe
+  // bloquearse por esto.
+  const cambiarOperacion = async (nuevaOperacion) => {
+    const terminosActuales = value.ficha?.terminos_renta
+    const yaTieneRequisitos = terminosActuales?.requisitos_fisica || terminosActuales?.requisitos_moral
+
+    if (nuevaOperacion === 'renta' && !yaTieneRequisitos) {
+      const plantilla = await traerPlantillaRenta()
+      if (plantilla) {
+        onChange({
+          ...value,
+          operacion: nuevaOperacion,
+          ficha: { ...value.ficha, terminos_renta: { ...value.ficha?.terminos_renta, ...plantilla } },
+        })
+        return
+      }
+    }
+
+    set('operacion')(nuevaOperacion)
+  }
+
+  // FIX (24 jul, reportado por Okta): propiedades que YA estaban en renta
+  // antes de que este feature existiera (o cualquier ficha en renta que se
+  // abre sin haber pasado nunca por cambiarOperacion, que solo dispara al
+  // elegir "Renta" a mano) se quedaban sin plantilla para siempre — nunca
+  // hay un cambio de operación que lo dispare. Al abrir una ficha ya
+  // guardada (value.id existe) que es renta y no tiene nada capturado
+  // todavía, se trae la plantilla una sola vez. Se detiene solo: en cuanto
+  // haya algo en requisitos_fisica/moral (por esta carga o por edición de
+  // Nydia), la condición yaTieneRequisitos ya no vuelve a dispararlo.
+  useEffect(() => {
+    if (!value.id || value.operacion !== 'renta') return
+    const terminosActuales = value.ficha?.terminos_renta
+    const yaTieneRequisitos = terminosActuales?.requisitos_fisica || terminosActuales?.requisitos_moral
+    if (yaTieneRequisitos) return
+
+    let cancelado = false
+    traerPlantillaRenta().then((plantilla) => {
+      if (!plantilla || cancelado) return
+      onChange({
+        ...value,
+        ficha: { ...value.ficha, terminos_renta: { ...value.ficha?.terminos_renta, ...plantilla } },
+      })
+    })
+    return () => { cancelado = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.id, value.operacion])
+
+  // Botón manual "Cargar de Mi Perfil" — para cuando Nydia actualiza su
+  // plantilla después y quiere traerla a una ficha que ya tenía algo
+  // capturado (el efecto de arriba no la pisa a propósito una vez que ya
+  // hay texto). A diferencia del efecto, este SÍ sobreescribe — es una
+  // acción explícita del usuario, no una carga automática.
+  const recargarPlantillaRenta = async () => {
+    setCargandoPlantillaRenta(true)
+    const plantilla = await traerPlantillaRenta()
+    setCargandoPlantillaRenta(false)
+    if (!plantilla) return
+    onChange({
+      ...value,
+      ficha: { ...value.ficha, terminos_renta: { ...value.ficha?.terminos_renta, ...plantilla } },
+    })
+  }
 
   const agregarRed = () => {
     if (!nuevaRed.url.trim()) return
@@ -292,7 +390,7 @@ export default function FichaBasico({ value, onChange }) {
       <GrupoCampos>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
           <TapButtonGroup label="Tipo" options={TIPOS} value={value.tipo} onChange={set('tipo')} required compact />
-          <TapButtonGroup label="Operación" options={OPERACIONES} value={value.operacion} onChange={set('operacion')} required compact />
+          <TapButtonGroup label="Operación" options={OPERACIONES} value={value.operacion} onChange={cambiarOperacion} required compact />
           <TapButtonGroup label="Uso" options={USOS} value={value.uso} onChange={set('uso')} required compact />
           <TapButtonGroup label="Zona" options={ZONAS} value={value.zona} onChange={set('zona')} required compact />
         </div>
@@ -375,6 +473,55 @@ export default function FichaBasico({ value, onChange }) {
           <NumberField label="M² terreno" value={value.m2_terreno} onChange={set('m2_terreno')} suffix="m²" />
         </div>
       </GrupoCampos>
+
+      {/* 24 jul — términos de renta, solo visibles cuando operacion ===
+          'renta' (no hay precedente previo de un grupo condicionado por
+          operación en esta ficha; se agrega aquí). requisitos_fisica/moral
+          se precargan desde la plantilla de Mi Perfil al elegir "Renta"
+          arriba (ver cambiarOperacion) y quedan editables por propiedad. */}
+      {value.operacion === 'renta' && (
+        <GrupoCampos>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <p style={{ fontSize: 13, color: 'var(--ta-text-muted)', margin: 0 }}>Términos de renta</p>
+            <button
+              type="button"
+              onClick={recargarPlantillaRenta}
+              disabled={cargandoPlantillaRenta}
+              style={{ border: 'none', background: 'none', color: 'var(--ta-accent)', fontSize: 12, cursor: cargandoPlantillaRenta ? 'default' : 'pointer', padding: 0 }}
+            >
+              {cargandoPlantillaRenta ? 'Cargando...' : 'Cargar de Mi Perfil'}
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+            <NumberField
+              label="Meses de depósito"
+              value={value.ficha?.terminos_renta?.meses_deposito}
+              onChange={setTerminoRenta('meses_deposito')}
+            />
+            <NumberField
+              label="Meses mínimo de contrato"
+              value={value.ficha?.terminos_renta?.meses_minimo_contrato}
+              onChange={setTerminoRenta('meses_minimo_contrato')}
+            />
+          </div>
+          <TextAreaField
+            label="Requisitos — persona física"
+            value={value.ficha?.terminos_renta?.requisitos_fisica}
+            onChange={setTerminoRenta('requisitos_fisica')}
+            placeholder={'• Identificación oficial\n• Comprobante de domicilio...'}
+            ayuda="Se precargó desde tu plantilla en Mi Perfil — puedes ajustarla para esta propiedad."
+            rows={4}
+          />
+          <TextAreaField
+            label="Requisitos — persona moral"
+            value={value.ficha?.terminos_renta?.requisitos_moral}
+            onChange={setTerminoRenta('requisitos_moral')}
+            placeholder={'• Acta constitutiva\n• Poder del representante legal...'}
+            ayuda="Se precargó desde tu plantilla en Mi Perfil — puedes ajustarla para esta propiedad."
+            rows={4}
+          />
+        </GrupoCampos>
+      )}
 
       <GrupoCampos>
         <div style={{ marginBottom: '0.5rem' }}>

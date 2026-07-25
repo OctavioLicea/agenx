@@ -31,6 +31,7 @@
 import { useState, useEffect } from 'react'
 import { useInteraccion, INTERACCION_VACIA } from './hooks/useInteraccion'
 import { supabase } from '../../lib/supabaseClient'
+import BotonCerrar from '../../components/BotonCerrar'
 
 const CANALES = [
   { value: 'whatsapp', label: 'Whatsapp' },
@@ -407,11 +408,9 @@ export default function InteraccionForm({ contactoId, contactoNombre, propiedadI
       <div style={{ width: '100%', maxWidth: 400, maxHeight: '90vh', overflowY: 'auto', background: 'var(--ta-surface)', borderRadius: 20, padding: 16 }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderRadius: 8 }}>
-            <IconoX />
-          </button>
-          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>{editando ? 'Editar interacción' : 'Nueva interacción'}</span>
           <span style={{ width: 44 }} />
+          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>{editando ? 'Editar interacción' : 'Nueva interacción'}</span>
+          <BotonCerrar onClick={onCerrar} />
         </div>
 
         <div style={{ marginBottom: 14 }}>

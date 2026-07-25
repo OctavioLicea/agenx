@@ -8,7 +8,30 @@
 > sueltos anteriores (Sesiones 2 a 9) — esos quedan como archivo
 > histórico, no se vuelven a tocar.
 >
-> Última actualización: 23 de julio 2026 (sesión 21, continuación — el
+> Última actualización: 24 de julio 2026 (sesión 22, continuación 4 —
+> fix de precarga de plantilla en propiedades ya existentes en renta +
+> botón manual "Cargar de Mi Perfil"; instrucciones de comit/deploy
+> entregadas a Okta, con un hallazgo de historial git divergido que se
+> le explicó antes de dar los comandos, ver "🚀 Pendiente inmediato —
+> Deploy" abajo.)
+>
+> Actualización anterior: 24 de julio 2026 (sesión 22, continuación 4 —
+> campos exclusivos de renta en la ficha base: # meses de depósito, #
+> meses mínimo de contrato, requisitos de arrendamiento por persona
+> física/moral. Ver sección "🏠 Campos de renta en la ficha base" abajo.)
+>
+> Actualización anterior: 23 de julio 2026 (sesión 22, continuación 3 —
+> 4 mejoras de UX reportadas por Okta: grid por default en Propiedades,
+> toast de doble-atrás para salir de la app, ícono de cerrar unificado en
+> 9 componentes, botón "Regenerar" renombrado en el generador de posts.)
+>
+> Actualización anterior: 23 de julio 2026 (sesión 22 — bloqueante de
+> `nombre_comercial` de la cuenta de Okta resuelto completando el perfil
+> (no borrando la cuenta, por el riesgo cruzado con ivent que se descubrió
+> al intentarlo); QA/Playwright arrancado y luego desinstalado por
+> completo el mismo día.)
+>
+> Actualización anterior: 23 de julio 2026 (sesión 21, continuación — el
 > flujo de invitación multi-usuario quedó funcionando de punta a punta:
 > los 2 bugs abiertos del cierre anterior (redirect_to a ivent, "Auth
 > session missing!") están resueltos, ver detalle abajo en "Multi-usuario:
@@ -62,6 +85,29 @@
 ---
 
 ## 🚀 Pendiente inmediato — Deploy
+
+- [ ] **Comitear y desplegar todo lo acumulado desde la Sesión 22
+  (candado multi-usuario) hasta hoy 24 jul (campos de renta)** —
+  instrucciones entregadas a Okta para correr desde su máquina, ver
+  detalle abajo. Nada de esto se ha comiteado todavía.
+- [x] **Hallazgo al preparar el comit (24 jul): historial divergido —
+  `main` local mostraba "ahead 1, behind 1" contra `origin/main`.**
+  Diagnosticado con `git diff` entre ambos commits: son el mismo cambio
+  (candado de acceso multi-usuario), pero el commit ya pusheado en
+  GitHub (`fbde1f7`) además borra `docs/bitacora/2026-07-23.md`, algo
+  que el commit local (`6f645fd`) no tiene — parece un commit hecho por
+  Okta directo en otra sesión/máquina que este checkout nunca llegó a
+  sincronizar. **No se tocó nada del historial sin confirmar con
+  Okta primero** (misma regla de "mostrar antes de ejecutar" ya
+  establecida) — se le explicó el hallazgo junto con las instrucciones
+  de comit, recomendando `git reset --mixed origin/main` (no destructivo,
+  no toca ningún archivo de trabajo, solo realinea qué ya está
+  comiteado) en vez de un `pull`/`merge` normal, y recuperar
+  `docs/bitacora/2026-07-23.md` en vez de dejarlo borrado (esa bitácora
+  documenta la primera mitad del 23 jul, `2026-07-23_2.md` es la
+  continuación — son dos sesiones distintas del mismo día, no
+  duplicados; seguirlo borrando iría contra la regla dura de este
+  proyecto de nunca perder una bitácora ya cerrada).
 
 - [x] **Subir a producción (`npm run deploy` → gh-pages → `tuasesor.eventosytech.com`)** — hecho en Sesión 12 (14 jul). Commit de todo lo pendiente de Sesión 11 preparado en Cowork (revisado a mano: sin secretos, sin archivos de sync colados); `npm run deploy` corrido por Okta desde su máquina — build de Vite ok (254 módulos), publicado.
 - [x] **Fix: `CNAME` movido a `public/CNAME`** (Sesión 12) — el primer deploy de la sesión rompió el dominio custom (`tuasesor.eventosytech.com` → 404 "no GitHub Pages site here") porque `CNAME` vivía solo en la raíz del proyecto y Vite no lo copiaba al build; cada `npm run deploy` publica `dist/` completo a `gh-pages`, así que el dominio se perdió. Corregido copiando `CNAME` a `public/` para que sobreviva a todo build futuro. Confirmado vía `git show origin/gh-pages:CNAME` que ya está de vuelta en la rama.
@@ -362,10 +408,118 @@
   1. **Carrera con `detectSessionInUrl`**: el SDK de Supabase, por default, procesa automáticamente los tokens del link apenas se crea el cliente — en paralelo a que `EstablecerPassword.jsx` hacía su propio `setSession()` manual. Confirmado en consola: `"Session as retrieved from URL was issued over 120s ago, URL could be stale"` (advertencia propia del SDK). Fix: `auth: { detectSessionInUrl: false }` en `supabaseClient.js` — `EstablecerPassword.jsx` es el único lugar de la app que necesita leer tokens de la URL, ya no compite con nadie.
   2. **La bandera `activo` "envenenada" por StrictMode**: React monta cada componente 2 veces en dev (monta → desmonta → monta). Un primer fix (ref `yaCorrio`) evitó que `setSession()` se llamara dos veces, pero no bastaba: la bandera `activo` vivía como variable local de cada invocación del efecto — el desmontaje falso de StrictMode la apagaba en la closure del primer montaje, y cuando por fin llegaba la respuesta exitosa de `setSession()` (confirmado con logs: `activo? false session?.user? true`), el código la veía en `false` y abortaba sin nunca poner `estado='listo'`, pese a que la sesión sí se había establecido bien. Fix: `activoRef` (ref compartido, no variable local) que se reactiva a `true` en cada invocación del efecto — para cuando la promesa de la primera invocación resuelve, refleja el estado real y no un snapshot congelado.
 - [x] **Probado de punta a punta y verificado en base de datos** (23 jul): invitación → `EstablecerPassword` → contraseña + perfil → candado → CRM. Cuenta de prueba `octavioliceade@hotmail.com` completó el flujo completo; `tuasesor.perfiles` confirma `nombre_completo: "OCTAVIO LICEA"`, `nombre_comercial: "Okta Licea"`.
-- [ ] **Bloqueante antes de desplegar a producción**: la propia cuenta de Okta (`octaviolicea1@gmail.com`) sigue sin `nombre_comercial` en `perfiles` — si esto se despliega tal cual, se bloquea a sí mismo en el siguiente login/recarga. Nydia sí tiene los 4 campos completos, no le afecta. **Acción pendiente para Okta**: completar su propio `nombre_comercial` en Mi Perfil antes de desplegar.
-- [ ] **Falta comitear**: `main.jsx`, `App.jsx`, `src/lib/supabaseClient.js`, `src/features/auth/EstablecerPassword.jsx`, `scripts/invitar-usuario.mjs` — bloqueado en Cowork por el bug conocido de sandbox (`.git/index.lock`, permiso denegado); comandos ya entregados a Okta para correr desde su máquina.
+- [x] **Bloqueante antes de desplegar a producción — resuelto (23 jul, misma sesión)**: la propia cuenta de Okta (`octaviolicea1@gmail.com`) seguía sin `nombre_comercial` en `perfiles`. Se consideró borrar la cuenta en vez de completarla, pero un intento de `DELETE FROM auth.users` se detuvo solo gracias a una FK: esta cuenta también tiene un evento con fotos en **ivent** (schema `public`, mismo proyecto — `auth.users` es compartida entre las dos apps), y el borrado en cascada se hubiera llevado ese evento entre las patas. La transacción falló completa (sin cambios) por la FK `photos → events`, no por una verificación previa de Claude — **lección aplicada de aquí en adelante**: cualquier `DELETE` sobre una tabla compartida entre TuAsesor e ivent revisa primero las dependencias en AMBOS schemas y se confirma con Okta antes de ejecutar, no después de que falle. Decisión final: no borrar la cuenta, completar el perfil — `nombre_comercial` actualizado a **"Octavio C. Licea"** vía SQL directo, confirmado con `returning`. Nydia ya tenía los 4 campos completos, no le afectaba este bloqueante.
+- [ ] **Falta comitear**: `main.jsx`, `App.jsx`, `src/lib/supabaseClient.js`, `src/features/auth/EstablecerPassword.jsx`, `scripts/invitar-usuario.mjs` — bloqueado en Cowork por el bug conocido de sandbox (`.git/index.lock`, permiso denegado); comandos ya entregados a Okta para correr desde su máquina. **Okta lo va a hacer al final del día de hoy (23 jul).**
 - [ ] **Falta agregar las Redirect URLs al proyecto de Supabase** si no se hizo ya de forma permanente (se agregaron durante esta sesión vía dashboard — confirmar que sigan ahí en la próxima sesión, no se puede verificar por SQL).
-- [ ] **Cuenta de prueba `octavioliceade@hotmail.com`** quedó con perfil completo y dentro del CRM tras la prueba exitosa — decidir si se limpia (borrar cuenta + filas relacionadas) antes de invitar gente real, para no dejar basura de QA en tablas compartidas.
+- [ ] **Cuenta de prueba `octavioliceade@hotmail.com`** quedó con perfil completo y dentro del CRM tras la prueba exitosa. **Decidido (23 jul): Okta la borra él mismo**, no Claude — dado el hallazgo de arriba (`auth.users` compartida con ivent), cualquier borrado de cuenta en este proyecto se revisa a mano antes de ejecutar.
+
+## 🧪 QA / Playwright — arrancado y desinstalado el mismo día (23 jul)
+
+- [x] **Hallazgo al arrancar**: el repo tenía DOS setups de Playwright sin usar, nunca limpiados — `playwright.config.js` (`testDir: './tests'`) y `playwright.config.ts` (`testDir: './e2e'`), cada uno con su propio `example.spec` boilerplate sin tocar (probablemente de correr `npm init playwright` dos veces en sesiones distintas).
+- [x] **Setup duplicado borrado (23 jul, a pedido explícito de Okta)**: `tests/example.spec.js`, `playwright.config.js` y la carpeta `tests/` (quedó vacía) eliminados. `e2e/` + `playwright.config.ts` queda como el único setup.
+- [x] **`e2e/login.spec.ts`** (nuevo): 4 casos sobre `LoginForm.jsx` — formulario renderiza sus campos; ícono de ojo muestra/oculta la contraseña; credenciales inválidas muestran el mensaje de error real y el botón se re-habilita; login válido saca de la pantalla de login (lee `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` de env, se salta si no están). `npm run test:e2e` agregado a `package.json`. `baseURL`/`webServer` configurados en `playwright.config.ts`.
+- [x] **Corrido por primera vez por Okta en su máquina (23 jul)**: 12 de 18 fallaron (todos los de `login.spec.ts`, en los 3 navegadores) — solo pasaron los 2 `example.spec.ts` de fábrica, que ni siquiera tocan la app (van directo a `playwright.dev`). Apunta a que el `webServer` no llegó a levantar `npm run dev` a tiempo o el navegador no conectó a `localhost:5173` — no se alcanzó a diagnosticar el error exacto.
+- [x] **Decisión (23 jul, mismo día): primero pausado, después desinstalado por completo.** Okta lo cuestionó explícitamente ("¿esto va a complicar todo?") — para un proyecto de una sola persona, sin CI, montar una suite de e2e con 3 navegadores es más infraestructura de la necesaria hoy, mismo criterio YAGNI que el resto del proyecto. Tras acordar pausarlo, Okta pidió ir un paso más allá y quitarlo del todo.
+- [x] **Desinstalado (23 jul, más tarde en la misma sesión)**: borrados `e2e/login.spec.ts`, `e2e/example.spec.ts`, la carpeta `e2e/`, `playwright.config.ts`, y las carpetas de artefactos generadas por la corrida de Okta (`playwright-report/`, `test-results/`, ya estaban en `.gitignore` pero seguían en disco). `package.json`: quitado el script `test:e2e` y la dependencia `@playwright/test` de `devDependencies`. **Confirmado por Okta (23 jul)**: corrió `npm install` en su máquina — `removed 3 packages` (`@playwright/test` + sus 2 dependencias exclusivas), `package-lock.json`/`node_modules` ya sincronizados. No queda ningún archivo ni paquete de Playwright en el repo. `npm audit` marcó 2 vulnerabilidades de severidad alta, ambas en dependencias de build (`postcss`, `brace-expansion` — herramientas del toolchain, no código expuesto a Nydia/clientes), corregidas con `npm audit fix` (sin `--force`, actualización compatible) — confirmado **0 vulnerabilidades** después. `npm run build` verificado limpio tras el fix (867ms, sin errores; el warning de chunks >500kB es el ya conocido de `ExportaFicha`/`@react-pdf/renderer`, cargado con `lazy()`, no afecta la carga inicial).
+
+## 🎨 4 mejoras de UX reportadas por Okta (23 jul) — construidas y verificadas
+
+- [x] **Grid por default en `ListadoPropiedades.jsx`, mapa solo al togglear**: antes la vista arrancaba en mapa, y aunque cambiaras a grid quedaba un mini-mapa fijo de 110px siempre visible arriba. Ahora `vista` arranca en `'grid'` y el mini-mapa se quitó por completo del modo grid — el mapa (completo) solo aparece si tocas el ícono de mapa en la barra de arriba. El padding-top del grid subió de 16px a 110px para que no quede tapado por la barra de filtros, que sigue flotando encima con `position: absolute`. (Sin cambio: tocar una tarjeta en grid sigue mandando a la vista de mapa para centrar el pin — eso ya era el comportamiento de "seleccionar" desde Sesión 16, no se tocó.)
+- [x] **Toast "Toca atrás de nuevo para salir" en `App.jsx`**: el fix del 18 jul resolvía la navegación entre vistas dentro de la app, pero desde 'buscador' (la pantalla de entrada) un atrás más seguía sacando de la app sin avisar — nunca se había probado en celular real. Patrón de doble-atrás (mismo que WhatsApp/apps Android, elegido por Okta sobre un modal Sí/No bloqueante): el primer atrás desde 'buscador' se cancela (`pushState` vuelve a dejar una entrada de la app) y muestra un toast fijo abajo por 2 segundos; un segundo atrás dentro de esa ventana ya no se cancela, deja salir de verdad. **Pendiente de confirmar en celular real** (igual que el fix original del 18 jul, nunca validado fuera de Cowork).
+- [x] **Ícono de cerrar (X) unificado — `src/components/BotonCerrar.jsx` (nuevo)**: había 9 copias distintas del botón de cerrar repartidas en `CitaForm`, `InteraccionForm`, `EnviarDocumentosBoveda`, `GeneradorPostFacebook`, `ImportarContactos`, `EscanearDocumento` (6 arriba-izquierda, SVG local cada una), `PropiedadForm` (arriba-derecha, SVG local) y `ContactoForm`/`ExportaFicha` (arriba-derecha, pero con el carácter de texto `×` en vez de SVG — por eso se veían más débiles). Ahora un solo componente compartido, siempre arriba a la derecha, área tocable 44×44 (mismo estándar de accesibilidad ya usado en Contactos/Propiedades). En `PropiedadForm`/`ExportaFicha` (headers con varios íconos de 32px en fila) se usó a 40×40 vía el prop `style` para no romper la alineación del resto de la fila. Los `IconoX`/`IconoCerrar` locales que quedaron sin uso se borraron de cada archivo (los que seguían usándose para otra cosa, como botones de "quitar selección" en `CitaForm`/`InteraccionForm`, se dejaron intactos).
+- [x] **Contraste del botón — segunda vuelta, mismo día**: la primera versión usaba fondo `var(--ta-bg)` (el mismo beige del lienzo general de la app) sobre una ventana blanca — casi no se notaba como botón. Se armó un mockup comparando 3 variantes (borde delgado, círculo gris translúcido, círculo sólido oscuro) — Okta eligió el círculo sólido (`background: var(--ta-text)`, ícono en `var(--ta-surface)` blanco), el de mayor contraste. Con el círculo oscuro la X de 18px se veía chica en proporción — subida a 22px con `strokeWidth 2.4` para que se note bien dentro del círculo.
+- [x] **Variante `toolbar` — tercera vuelta, mismo día**: Okta reportó que el círculo sólido se veía "burdo" en el header de `PropiedadForm.jsx` (fila con lápiz, compartir, Facebook y liga pública). Consultado `ui-ux-pro-max`: reglas `icon-style-consistent` (un mismo lenguaje visual de íconos en todo el producto) y `primary-action` (las acciones secundarias deben verse subordinadas) — un botón con más peso que sus 3-4 hermanos del mismo header se lee como la acción principal, cuando cerrar es la más secundaria. `BotonCerrar` ahora acepta `variant="toolbar"` (cuadrado redondeado 32×32, fondo `var(--ta-bg)`, mismo lenguaje que sus hermanos) vs. el default `"modal"` (círculo sólido 44×44, para headers donde la X es el único botón — `CitaForm`, `InteraccionForm`, `EnviarDocumentosBoveda`, `GeneradorPostFacebook`, `ImportarContactos`, `EscanearDocumento`, `ContactoForm`, `ExportaFicha`). Aplicado `variant="toolbar"` solo en `PropiedadForm.jsx` (el único header con varios íconos hermanos) — `ExportaFicha.jsx` se revirtió al default (solo tiene título + cerrar, sin fila de íconos, sí necesita el contraste fuerte).
+- [x] **Botón "Regenerar" → "Reiniciar texto" en `GeneradorPostFacebook.jsx`**: Okta reportó confusión sobre qué hacía. Aclarado en la conversación: no restaura ningún texto original guardado (no existe tal cosa) — arma un texto nuevo desde cero con los datos de la propiedad + la configuración actual del checklist/estilo, descartando cualquier edición manual. Decisión de Okta: solo renombrar el botón para que el verbo comunique mejor "empieza de nuevo" en vez de agregar tooltip o un `confirm()` antes de sobreescribir.
+- [x] **Verificado**: `npm install` + `npm run build` (275 módulos, sin errores, mismo warning ya conocido de chunks >500kB en `ExportaFicha`) + `npm run lint` en una copia temporal fuera del repo (método ya documentado). Lint: 57 errores/17 warnings preexistentes del repo (mismo patrón de `react-hooks/set-state-in-effect` ya arrastrado de sesiones anteriores) — confirmado uno por uno que ninguno cae en líneas tocadas hoy, cero regresiones nuevas.
+
+## 🗺️ 3 fixes en la página pública, tema Elegance (24 jul)
+
+- [x] **Mapa no respondía al mouse en desktop hasta el primer clic**: mismo bug ya conocido y resuelto en `ListadoPropiedades.jsx` (CRM) — el contenedor del mapa (`.pe-mapa`, con `aspect-ratio` en CSS) a veces no tenía su alto final calculado cuando Leaflet se montaba, dejando cacheado un tamaño interno equivocado que rompía el drag/pan hasta que algo forzaba un recálculo. Nuevo componente compartido `InvalidarTamanoMapa` en `componentesCompartidos.jsx` (llama `map.invalidateSize()` en un timeout corto tras montar) — agregado a los 3 temas (Estándar, Elegance, Nocturno), no solo Elegance, porque los 3 tienen el mismo `MapContainer` sin este fix.
+- [x] **"Falta un frame" al mapa — confirmado**: `.pe-card` (Elegance) usa solo `box-shadow`, sin borde, a propósito (parte de la estética "elegante" del tema). Pero el mapa, al ser contenido embebido (no una foto con límites visuales propios), sí necesitaba un borde definido — agregado `border: 0.5px solid var(--pe-border)` a `.pe-mapa`, mismo hairline que ya usa el resto del tema, sin pelearse con el criterio "sin bordes" de las demás tarjetas.
+- [x] **"Asesora inmobiliaria" se repetía bajo el nombre de Nydia**: causa raíz — `nombre_comercial` de Nydia ya es "Nydia Jaramillo Asesora Inmobiliaria" (ella lo escribió así, incluyendo el rol en su nombre comercial), y Elegance (y también Estándar, mismo bug, no reportado todavía) tenían un subtítulo fijo "Asesora inmobiliaria" hardcodeado debajo, sin importar qué dijera `nombre_comercial`. Quitado el subtítulo fijo en ambos temas — Nocturno no tenía el bug (ahí "Asesora inmobiliaria" solo aparece como *fallback* si `marcaTexto` viene vacío, patrón correcto que no se tocó).
+- [x] Verificado con build limpio, sin errores en los 3 temas.
+
+## 🖱️ Fix: doble clic para abrir ficha desde el grid (23 jul)
+
+- [x] **Reportado por Okta**: al tocar una tarjeta en el grid, la vista saltaba a mapa y solo centraba/seleccionaba la propiedad (comportamiento de Sesión 16, "seleccionar ≠ abrir ficha") — había que tocar otra vez (la flecha) para realmente abrir la ficha. Tenía sentido cuando el grid convivía con un mini-mapa siempre visible; ahora que el grid es limpio (ver arriba) y es la vista de entrada, ese paso intermedio ya no aporta nada.
+- [x] **Corregido solo en grid**: tocar la tarjeta ahora llama directo a `onSeleccionar` (abre la ficha). Se quitó el botón de flecha "Ver ficha completa", redundante con la tarjeta completa ya siendo clicable. **Sin cambio en la vista de mapa**: ahí tocar un pin/tarjeta del sheet sigue solo centrando primero — sí es útil confirmar ubicación antes de abrir cuando estás navegando el mapa.
+- [x] Verificado con build limpio.
+
+## 🙈 Ocultar/mostrar propiedades (soft delete) en el grid (23 jul)
+
+- [x] **Usa `propiedades.esta_oculto`**, columna que ya existía en el schema (`boolean default false`) pero no se usaba en ningún lado del código todavía — confirmado con `Grep` antes de construir.
+- [x] **Ícono de ojo por tarjeta** (esquina superior izquierda del grid, junto al de "abrir ficha" que ya estaba a la derecha): ojo abierto = ocultar, ojo tachado = mostrar. Update optimista directo a Supabase + estado local, sin refetch completo.
+- [x] **Chip "Ocultas" en la barra de filtros**, aparte de Todas/Venta/Renta (estilo oscuro sólido a propósito, para no confundirse con esos): por default las ocultas quedan excluidas del grid y del mapa; activar el chip muestra SOLO las ocultas (de cualquier operación). "Limpiar" ya resetea `filtroOperacion` a `'todas'`, así que también saca del modo "Ocultas" sin cambio extra.
+- [x] Tarjetas ocultas (visibles solo bajo el filtro) muestran una etiqueta roja "Oculta" junto al badge de estado, para diferenciarlas a simple vista.
+- [x] Verificado con build limpio (277 módulos, sin errores).
+
+## 🏠 Campos de renta en la ficha base (24 jul) — construido y verificado
+
+- [x] **Pedido de Okta**: en propiedades en renta hacen falta 3 campos —
+  # meses de depósito, # meses mínimo de contrato, y "requisitos de
+  renta" (distintos según persona física o persona moral). Antes de
+  codificar se hicieron 4 preguntas concretas (mismo patrón ya
+  establecido esta sesión: investigar el código real primero, preguntar
+  después con opciones basadas en lo encontrado, nunca en abstracto).
+- [x] **Decisión: requisitos son una plantilla fija, no texto por
+  propiedad**: Nydia los redacta UNA vez en Mi Perfil (texto libre, con
+  viñetas a mano si quiere) y se precargan solos en cada propiedad nueva
+  que ponga en renta — pero quedan editables ahí por si un caso puntual
+  necesita algo distinto. Formato: texto libre por tipo de persona (no
+  checklist estructurado).
+- [x] **Migración aplicada** (`agregar_plantillas_requisitos_renta_perfiles`):
+  `tuasesor.perfiles.plantilla_requisitos_renta_fisica` y
+  `...renta_moral` (ambas `text`, nullable).
+- [x] **`PerfilForm.jsx`**: nueva sección "Requisitos de renta" (entre
+  Redes sociales y Marca) con 2 textareas de autosave al salir del campo
+  (`CampoTextoLargo`, nuevo — mismo patrón de autosave que `CampoEditable`
+  pero multilínea).
+- [x] **Meses de depósito / meses mínimo de contrato — viven en el jsonb
+  `ficha`, no como columnas reales**: ninguno de los dos se filtra ni se
+  ordena en ningún listado hoy, mismo criterio ya usado para
+  `situacion_fiscal_legal` (ver "Principios vigentes" — hybrid
+  jsonb/columna). Nueva llave `ficha.terminos_renta` en `FICHA_DEFAULT`
+  (`usePropiedad.js`) — no requirió tocar la whitelist
+  `COLUMNAS_PROPIEDADES`, `ficha` ya estaba incluida completa.
+- [x] **`FichaBasico.jsx`**: nuevo grupo "Términos de renta", visible
+  solo cuando `operacion === 'renta'` (primer campo condicionado por
+  operación en esta ficha — no había precedente). Al elegir "Renta" por
+  primera vez (sin requisitos ya escritos en esa ficha, para no pisar una
+  edición previa), `cambiarOperacion()` trae la plantilla del perfil
+  desde Supabase y precarga `requisitos_fisica`/`requisitos_moral`.
+- [x] **Visible en PDF (`ExportaFicha.jsx`)**: sección "Términos de
+  renta" agregada como parte de la ficha Básica (sin checkbox propio,
+  mismo criterio que precio/dirección — siempre se incluye si
+  `operacion === 'renta'`).
+- [x] **Visible en los 3 temas de la página pública**: `terminosRenta`
+  agregado a `usePropiedadPublica.js` (derivado de `propiedad.ficha`, ya
+  venía completo en la vista `propiedades_publicas`, no requirió tocar la
+  vista/RLS). Tarjeta/card "Términos de renta" agregada en Estándar,
+  Elegance y Nocturno, cada una con el lenguaje visual propio del tema
+  — solo se pinta si hay algo capturado.
+- [x] **Verificado**: `npm install` + `npm run build` (limpio) +
+  `npm run lint` en copia temporal (58 errores/17 warnings — +1 sobre el
+  baseline de 57, causado por el mismo patrón `react-hooks/set-state-in-effect`
+  que ya existe en `CampoEditable` del mismo archivo, replicado a
+  propósito en el nuevo `CampoTextoLargo` — no es una regresión de un
+  patrón nuevo, es el mismo patrón ya aceptado en este archivo).
+- [ ] **Pendiente de probar con Nydia**: cargar una propiedad real en
+  renta, confirmar que la plantilla se precarga bien y que el texto se
+  ve bien en el PDF/página pública con viñetas escritas a mano.
+- [x] **Fix (24 jul, mismo día, reportado por Okta): propiedades YA
+  existentes en renta no precargaban los requisitos.** Causa: la
+  precarga solo estaba conectada a `cambiarOperacion()`, que dispara al
+  ELEGIR "Renta" a mano — una propiedad que ya era renta desde antes de
+  este feature (o cualquier ficha en renta que se abre sin pasar por ese
+  clic) nunca disparaba nada. Corregido con un `useEffect` en
+  `FichaBasico.jsx`: al abrir una ficha ya guardada (`value.id` existe)
+  que es renta y no tiene nada capturado todavía, trae la plantilla una
+  sola vez (se detiene solo en cuanto haya texto, para no pisar
+  ediciones). Se agregó también un botón manual **"Cargar de Mi
+  Perfil"** junto al encabezado de la sección — por si Nydia actualiza
+  su plantilla más adelante y quiere traerla a una ficha que ya tenía
+  algo escrito (ese caso el `useEffect` no lo pisa a propósito). Build
+  verificado limpio.
 
 ## 👤 Ficha de usuario (Mi perfil) — CERRADO
 

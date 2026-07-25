@@ -213,6 +213,49 @@ function ControlSubidaImagen({ titulo, ayuda, url, subiendo, onElegir, onQuitar,
   )
 }
 
+// Textarea de texto libre con autosave al salir del campo (blur) — mismo
+// patrón que CampoEditable, pero multilínea. Usado para las plantillas de
+// requisitos de renta (24 jul): Nydia escribe una sola vez, con viñetas a
+// mano si quiere, y eso se precarga luego en cada propiedad nueva en renta
+// (ver FichaBasico.jsx).
+function CampoTextoLargo({ label, value, onChange, placeholder, rows = 5 }) {
+  const [valor, setValor] = useState(value || '')
+
+  useEffect(() => {
+    setValor(value || '')
+  }, [value])
+
+  const confirmar = () => {
+    if (valor.trim() !== (value || '').trim()) onChange(valor)
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <p style={{ fontSize: 13, color: 'var(--ta-text)', margin: '0 0 6px' }}>{label}</p>
+      <textarea
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+        onBlur={confirmar}
+        placeholder={placeholder}
+        rows={rows}
+        style={{
+          width: '100%',
+          padding: '10px 12px',
+          borderRadius: 10,
+          border: '0.5px solid var(--ta-border)',
+          background: '#FFFFFF',
+          color: 'var(--ta-text)',
+          fontSize: 13,
+          fontFamily: 'inherit',
+          lineHeight: 1.5,
+          resize: 'vertical',
+          boxSizing: 'border-box',
+        }}
+      />
+    </div>
+  )
+}
+
 function IconoCandado() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -367,6 +410,10 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
   const [correoPublico, setCorreoPublico] = useState('')
   const [telefonos, setTelefonos] = useState([])
   const [redesSociales, setRedesSociales] = useState([])
+  // Plantillas de requisitos de renta (24 jul) — texto libre por tipo de
+  // arrendatario, se precarga en cada propiedad nueva en renta.
+  const [plantillaReqFisica, setPlantillaReqFisica] = useState('')
+  const [plantillaReqMoral, setPlantillaReqMoral] = useState('')
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [subiendoAvatar, setSubiendoAvatar] = useState(false)
   const avatarInputRef = useRef(null)
@@ -409,7 +456,7 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
 
     supabase
       .from('perfiles')
-      .select('nombre_completo, nombre_corto, nombre_comercial, correo_publico, telefonos, redes_sociales, avatar_url, logo_url, tarjeta_presentacion_url, color_acento, boveda_pin_hash, boveda_pin_salt, estilo_pagina_publica, acceso_tema_elegante, acceso_tema_nocturno')
+      .select('nombre_completo, nombre_corto, nombre_comercial, correo_publico, telefonos, redes_sociales, avatar_url, logo_url, tarjeta_presentacion_url, color_acento, boveda_pin_hash, boveda_pin_salt, estilo_pagina_publica, acceso_tema_elegante, acceso_tema_nocturno, plantilla_requisitos_renta_fisica, plantilla_requisitos_renta_moral')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data, error: fetchError }) => {
@@ -435,6 +482,8 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
           setEstiloPaginaPublica(data.estilo_pagina_publica || 'estandar')
           setAccesoTemaElegante(data.acceso_tema_elegante === true)
           setAccesoTemaNocturno(data.acceso_tema_nocturno === true)
+          setPlantillaReqFisica(data.plantilla_requisitos_renta_fisica || '')
+          setPlantillaReqMoral(data.plantilla_requisitos_renta_moral || '')
         }
         setCargando(false)
       })
@@ -972,6 +1021,29 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
             >
               + Agregar red social
             </button>
+          </div>
+
+          {/* Plantillas de requisitos de renta (24 jul) — texto fijo que
+              Nydia redacta una sola vez aquí y se precarga en cada
+              propiedad nueva que ponga en renta (ver cambiarOperacion en
+              FichaBasico.jsx); queda editable caso por caso en esa ficha. */}
+          <div style={divisorSeccion}>
+            <p style={encabezadoSeccion}>Requisitos de renta</p>
+            <p style={{ margin: '0 0 14px', fontSize: 11, color: 'var(--ta-text-muted)' }}>
+              Se precarga automáticamente en cada propiedad nueva que pongas en renta — puedes ajustarla después, propiedad por propiedad.
+            </p>
+            <CampoTextoLargo
+              label="Persona física"
+              value={plantillaReqFisica}
+              onChange={(v) => guardarCampo('plantilla_requisitos_renta_fisica', v, setPlantillaReqFisica)}
+              placeholder={'• Identificación oficial\n• Comprobante de domicilio\n• Comprobante de ingresos\n• Aval o fiador'}
+            />
+            <CampoTextoLargo
+              label="Persona moral"
+              value={plantillaReqMoral}
+              onChange={(v) => guardarCampo('plantilla_requisitos_renta_moral', v, setPlantillaReqMoral)}
+              placeholder={'• Acta constitutiva\n• Poder del representante legal\n• Comprobante de domicilio fiscal\n• Estados financieros'}
+            />
           </div>
 
           {/* Marca — antes deshabilitada con badge "Próximamente". Ahora

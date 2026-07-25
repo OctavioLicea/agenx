@@ -18,6 +18,7 @@
 // Timestamp: 2026-07-15, 23:10 hrs
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import BotonCerrar from '../../../components/BotonCerrar'
 
 const ANCHO_DISPLAY_MAX = 320
 const ALTO_DISPLAY_MAX = 440
@@ -29,14 +30,6 @@ function IconoCamara() {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
       <circle cx="12" cy="13" r="3.5" />
-    </svg>
-  )
-}
-
-function IconoX() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-      <path d="M18 6 6 18" /><path d="M6 6l12 12" />
     </svg>
   )
 }
@@ -199,16 +192,9 @@ export default function EscanearDocumento({ onCerrar, onEscaneado }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(42,42,40,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 70, padding: 16, boxSizing: 'border-box' }}>
       <div style={{ width: '100%', maxWidth: 460, maxHeight: '92vh', overflowY: 'auto', background: 'var(--ta-surface)', borderRadius: 20, padding: 16, boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <button
-            type="button"
-            onClick={onCerrar}
-            aria-label="Cerrar"
-            style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderRadius: 8 }}
-          >
-            <IconoX />
-          </button>
-          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>Escanear documento</span>
           <span style={{ width: 44 }} />
+          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>Escanear documento</span>
+          <BotonCerrar onClick={onCerrar} />
         </div>
 
         <input ref={inputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFoto} />

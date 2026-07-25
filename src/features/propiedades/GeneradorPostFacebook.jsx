@@ -35,6 +35,7 @@
 // Timestamp: 2026-07-18
 
 import { useMemo, useRef, useState } from 'react'
+import BotonCerrar from '../../components/BotonCerrar'
 
 // Mismos labels/listas que ya están duplicados en ExportaFicha.jsx y
 // usePropiedadPublica.js — criterio ya establecido en el proyecto de
@@ -104,14 +105,6 @@ const CAMPOS_DEF = [
   { key: 'amenidades', label: 'Amenidades destacadas', soloEnResumen: true },
   { key: 'hashtags', label: 'Hashtags' },
 ]
-
-function IconoX() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 6L6 18M6 6l12 12" />
-    </svg>
-  )
-}
 
 // No pide "Estatus legal" todavía — la ficha técnica (Historial y
 // Situación fiscal y legal) sigue sin construirse (ver docs/BACKLOG.md),
@@ -264,11 +257,9 @@ export default function GeneradorPostFacebook({ propiedad, onCerrar }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(42,42,40,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 65, padding: 16, boxSizing: 'border-box' }}>
       <div style={{ width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto', background: 'var(--ta-surface)', borderRadius: 20, padding: 16, boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderRadius: 8 }}>
-            <IconoX />
-          </button>
-          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>Post para Facebook</span>
           <span style={{ width: 44 }} />
+          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>Post para Facebook</span>
+          <BotonCerrar onClick={onCerrar} />
         </div>
 
         <p style={{ margin: '0 0 6px', fontSize: 12, color: 'var(--ta-text)', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -404,7 +395,7 @@ export default function GeneradorPostFacebook({ propiedad, onCerrar }) {
             onClick={() => regenerar()}
             style={{ flex: 1, height: 44, borderRadius: 10, border: '0.5px solid var(--ta-border)', background: 'var(--ta-bg)', color: 'var(--ta-text)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
           >
-            Regenerar
+            Reiniciar texto
           </button>
           <button
             type="button"

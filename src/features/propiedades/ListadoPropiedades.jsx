@@ -84,6 +84,30 @@ function IconoAbrirFicha() {
   )
 }
 
+// 23 jul 2026, pedido de Okta: control de ocultar/mostrar propiedad
+// (soft delete vía `propiedades.esta_oculto`, columna que ya existía en
+// el schema pero no se usaba en ningún lado de la app todavía). Ojo
+// abierto = "ocultar" (se muestra en tarjetas visibles); ojo tachado =
+// "mostrar" (se muestra solo dentro del filtro "Ocultas").
+function IconoOjo() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+function IconoOjoTachado() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.2A11 11 0 0 1 12 5c7 0 11 7 11 7a13.2 13.2 0 0 1-3.4 4.1M6.6 6.6C3.6 8.4 1 12 1 12s4 7 11 7a10.9 10.9 0 0 0 4.2-.8" />
+      <path d="M9.5 9.5a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  )
+}
+
 function IconoCalendario() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -255,7 +279,7 @@ export default function ListadoPropiedades({ onSeleccionar, onNueva, refreshKey 
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroOperacion, setFiltroOperacion] = useState('todas') // 'todas' | 'venta' | 'renta'
-  const [vista, setVista] = useState('mapa') // 'mapa' | 'grid'
+  const [vista, setVista] = useState('grid') // 'mapa' | 'grid' — grid por default (23 jul, pedido de Okta); el mapa ya no queda visible en modo grid (antes había un mini-mapa fijo de 110px), solo aparece al togglear con el ícono.
   const [seleccionadaId, setSeleccionadaId] = useState(null)
   const [sheetExpandido, setSheetExpandido] = useState(false)
   const [orden, setOrden] = useState('reciente') // 'reciente' | 'titulo' | 'precio'
@@ -291,12 +315,19 @@ export default function ListadoPropiedades({ onSeleccionar, onNueva, refreshKey 
         !texto ||
         p.titulo?.toLowerCase().includes(texto) ||
         p.direccion?.toLowerCase().includes(texto)
-      const coincideOperacion = filtroOperacion === 'todas' || p.operacion === filtroOperacion
+      // 'ocultas' es un filtro aparte de venta/renta: cuando está activo
+      // muestra SOLO las ocultas (sin importar operación); en cualquier
+      // otro filtro, las ocultas quedan excluidas por default.
+      const coincideOperacion =
+        filtroOperacion === 'ocultas' ||
+        filtroOperacion === 'todas' ||
+        p.operacion === filtroOperacion
+      const coincideVisibilidad = filtroOperacion === 'ocultas' ? !!p.esta_oculto : !p.esta_oculto
       const fechaCreada = p.created_at ? new Date(p.created_at) : null
       const coincideFecha =
         (!fechaDesde || (fechaCreada && fechaCreada >= new Date(`${fechaDesde}T00:00:00`))) &&
         (!fechaHasta || (fechaCreada && fechaCreada <= new Date(`${fechaHasta}T23:59:59`)))
-      return coincideTexto && coincideOperacion && coincideFecha
+      return coincideTexto && coincideOperacion && coincideVisibilidad && coincideFecha
     })
   }, [propiedades, busqueda, filtroOperacion, fechaDesde, fechaHasta])
 
@@ -333,6 +364,21 @@ export default function ListadoPropiedades({ onSeleccionar, onNueva, refreshKey 
   const seleccionar = (id) => {
     setSeleccionadaId(id)
     setVista('mapa')
+  }
+
+  // 23 jul 2026: ocultar/mostrar (soft delete) — update optimista sobre
+  // `propiedades` en memoria, sin refetch completo, mismo criterio que el
+  // resto de la app para acciones rápidas desde una tarjeta.
+  const alternarOculto = async (e, p) => {
+    e.stopPropagation()
+    const nuevoValor = !p.esta_oculto
+    const { error: errorUpdate } = await supabase
+      .from('propiedades')
+      .update({ esta_oculto: nuevoValor })
+      .eq('id', p.id)
+    if (!errorUpdate) {
+      setPropiedades((prev) => prev.map((x) => (x.id === p.id ? { ...x, esta_oculto: nuevoValor } : x)))
+    }
   }
 
   if (cargando) {
@@ -408,6 +454,25 @@ export default function ListadoPropiedades({ onSeleccionar, onNueva, refreshKey 
             {op === 'todas' ? 'Todas' : op === 'venta' ? 'Venta' : 'Renta'}
           </button>
         ))}
+        {/* 23 jul 2026, pedido de Okta: chip aparte de venta/renta — activa
+            el filtro "solo ocultas" (propiedades.esta_oculto). Estilo
+            distinto (oscuro sólido) a propósito, para que no se confunda
+            con los chips de operación de arriba. */}
+        <button
+          type="button"
+          onClick={() => setFiltroOperacion((v) => (v === 'ocultas' ? 'todas' : 'ocultas'))}
+          aria-pressed={filtroOperacion === 'ocultas'}
+          style={{
+            fontSize: 11, padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
+            border: filtroOperacion === 'ocultas' ? 'none' : '0.5px solid var(--ta-border)',
+            background: filtroOperacion === 'ocultas' ? 'var(--ta-text)' : 'var(--ta-bg)',
+            color: filtroOperacion === 'ocultas' ? 'var(--ta-surface)' : 'var(--ta-text-muted)',
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}
+        >
+          <IconoOjoTachado />
+          Ocultas
+        </button>
         {(busqueda.trim() !== '' || filtroOperacion !== 'todas') && (
           <button
             type="button"
@@ -538,30 +603,14 @@ export default function ListadoPropiedades({ onSeleccionar, onNueva, refreshKey 
           </>
         ) : (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ position: 'relative', height: 110, flexShrink: 0, zIndex: 1 }}>
-              <MapContainer
-                center={CENTRO_DEFAULT}
-                zoom={11}
-                style={{ height: '100%', width: '100%' }}
-                zoomControl={false}
-                dragging={false}
-                scrollWheelZoom={false}
-                doubleClickZoom={false}
-              >
-                <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <InvalidarTamano trigger={vista} />
-                {conUbicacion.map((p, idx) => (
-                  <Marker
-                    key={p.id}
-                    position={[p.lat, p.lng]}
-                    icon={crearIcono('#1F3A2C', idx + 1, false)}
-                    eventHandlers={{ click: () => seleccionar(p.id) }}
-                  />
-                ))}
-              </MapContainer>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 12px 90px' }}>
+            {/* Sin mini-mapa aquí (23 jul, pedido de Okta): antes quedaba un
+                MapContainer fijo de 110px siempre visible en modo grid. El
+                grid ahora es "limpio" — el mapa solo aparece al togglear con
+                el ícono de la barra de arriba. padding-top sube a 110px
+                (antes 16px, cuando el mini-mapa ya empujaba el contenido)
+                para que el grid no quede tapado por filtrosBar, que sigue
+                flotando con position:absolute sobre las dos filas de arriba. */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '110px 12px 90px' }}>
               <BarraOrdenFecha
                 cantidad={ordenadas.length}
                 orden={orden} setOrden={setOrden}
@@ -576,7 +625,7 @@ export default function ListadoPropiedades({ onSeleccionar, onNueva, refreshKey 
                   return (
                     <div
                       key={p.id}
-                      onClick={() => seleccionar(p.id)}
+                      onClick={() => onSeleccionar?.(p)}
                       style={{ background: '#FFFFFF', border: '0.5px solid var(--ta-border)', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', position: 'relative' }}
                     >
                       <div style={{ height: 90, background: 'var(--ta-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
@@ -594,15 +643,17 @@ export default function ListadoPropiedades({ onSeleccionar, onNueva, refreshKey 
                       </div>
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); onSeleccionar?.(p) }}
-                        aria-label="Ver ficha completa"
+                        onClick={(e) => alternarOculto(e, p)}
+                        aria-label={p.esta_oculto ? 'Mostrar propiedad' : 'Ocultar propiedad'}
+                        title={p.esta_oculto ? 'Mostrar propiedad' : 'Ocultar propiedad'}
                         style={{
-                          position: 'absolute', top: 6, right: 6, width: 26, height: 26,
+                          position: 'absolute', top: 6, left: 6, width: 26, height: 26,
                           border: 'none', borderRadius: 7, background: 'rgba(255,255,255,0.9)',
-                          color: 'var(--ta-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                          color: p.esta_oculto ? '#993C1D' : 'var(--ta-text-muted)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                         }}
                       >
-                        <IconoAbrirFicha />
+                        {p.esta_oculto ? <IconoOjoTachado /> : <IconoOjo />}
                       </button>
                       <div style={{ padding: 8 }}>
                         <p style={{ margin: 0, fontSize: 11, fontWeight: 500, color: 'var(--ta-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -614,6 +665,11 @@ export default function ListadoPropiedades({ onSeleccionar, onNueva, refreshKey 
                         <span style={{ display: 'inline-block', marginTop: 5, fontSize: 8, background: colores.bg, color: colores.text, borderRadius: 5, padding: '2px 5px' }}>
                           {etiquetasEstado[p.estado] || p.estado}
                         </span>
+                        {p.esta_oculto && (
+                          <span style={{ display: 'inline-block', marginTop: 5, marginLeft: 4, fontSize: 8, background: '#FCEBEB', color: '#791F1F', borderRadius: 5, padding: '2px 5px' }}>
+                            Oculta
+                          </span>
+                        )}
                       </div>
                     </div>
                   )

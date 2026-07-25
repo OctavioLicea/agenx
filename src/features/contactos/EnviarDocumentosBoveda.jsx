@@ -25,6 +25,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import BotonCerrar from '../../components/BotonCerrar'
 
 const BUCKET = 'bucket-propiedad-vault'
 const VIGENCIA_LINK_SEGUNDOS = 24 * 60 * 60 // 24 horas
@@ -240,11 +241,9 @@ export default function EnviarDocumentosBoveda({ contacto, onCerrar, onActualiza
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(42,42,40,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 65, padding: 16, boxSizing: 'border-box' }}>
       <div style={{ width: '100%', maxWidth: 440, maxHeight: '90vh', overflowY: 'auto', background: 'var(--ta-surface)', borderRadius: 20, padding: 16, boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderRadius: 8 }}>
-            <IconoX />
-          </button>
-          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>Enviar documentos</span>
           <span style={{ width: 44 }} />
+          <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>Enviar documentos</span>
+          <BotonCerrar onClick={onCerrar} />
         </div>
 
         <p style={{ margin: '0 0 6px', fontSize: 12, color: 'var(--ta-text-muted)' }}>Correo del contacto</p>

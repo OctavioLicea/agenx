@@ -33,6 +33,7 @@
 import { useState } from 'react'
 import { Document, Page, Text, View, Image, Link, StyleSheet, pdf } from '@react-pdf/renderer'
 import { supabase } from '../../lib/supabaseClient'
+import BotonCerrar from '../../components/BotonCerrar'
 // Isotipo de TuAsesor (solo el ícono de cuadros, sin wordmark — el
 // footer ya trae el texto "Generado con TuAsesor" al lado, el wordmark
 // se vería redundante). Guarda el PNG del isotipo en esta ruta exacta
@@ -229,6 +230,7 @@ function FichaPDFDocument({ propiedad, fotos, perfil, opciones }) {
   const ficha = propiedad.ficha || {}
   const equipamiento = ficha.equipamiento || {}
   const situacion = ficha.situacion_fiscal_legal || {}
+  const terminosRenta = ficha.terminos_renta || {}
   const extras = equipamiento.extras || []
 
   const precioTexto = formatearPrecio(propiedad.precio, propiedad.moneda)
@@ -381,6 +383,40 @@ function FichaPDFDocument({ propiedad, fotos, perfil, opciones }) {
             acento={acento}
           />
         </View>
+
+        {/* 24 jul — términos de renta: parte de la ficha Básica (misma
+            pestaña que precio/dirección), así que se incluye siempre que
+            operacion === 'renta', sin checkbox propio — igual criterio que
+            el resto del bloque de arriba. */}
+        {propiedad.operacion === 'renta' && (
+          <View wrap={false}>
+            <SeccionTitulo acento={acento}>Términos de renta</SeccionTitulo>
+            <FilaDato
+              label="Meses de depósito"
+              valor={tieneValor(terminosRenta.meses_deposito) ? String(terminosRenta.meses_deposito) : null}
+              incluirVacios={opciones.incluirVacios}
+              acento={acento}
+            />
+            <FilaDato
+              label="Meses mínimo de contrato"
+              valor={tieneValor(terminosRenta.meses_minimo_contrato) ? String(terminosRenta.meses_minimo_contrato) : null}
+              incluirVacios={opciones.incluirVacios}
+              acento={acento}
+            />
+            {tieneValor(terminosRenta.requisitos_fisica) && (
+              <>
+                <Text style={[styles.filaLabel, { marginTop: 8, marginBottom: 2 }]}>Requisitos — persona física</Text>
+                <Text style={styles.parrafo}>{terminosRenta.requisitos_fisica}</Text>
+              </>
+            )}
+            {tieneValor(terminosRenta.requisitos_moral) && (
+              <>
+                <Text style={[styles.filaLabel, { marginTop: 8, marginBottom: 2 }]}>Requisitos — persona moral</Text>
+                <Text style={styles.parrafo}>{terminosRenta.requisitos_moral}</Text>
+              </>
+            )}
+          </View>
+        )}
 
         {opciones.incluirFicha && (
           <>
@@ -609,15 +645,7 @@ export default function ExportaFicha({ propiedad, onCerrar }) {
       <div style={{ width: '100%', maxWidth: 420, maxHeight: '90vh', overflowY: 'auto', background: 'var(--ta-surface)', borderRadius: 16, padding: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
           <p style={{ margin: 0, fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>Exportar ficha</p>
-          <button
-            type="button"
-            onClick={onCerrar}
-            disabled={generando}
-            aria-label="Cerrar"
-            style={{ width: 32, height: 32, border: 'none', borderRadius: 8, background: 'var(--ta-bg)', color: 'var(--ta-text-muted)', cursor: 'pointer' }}
-          >
-            ×
-          </button>
+          <BotonCerrar onClick={onCerrar} disabled={generando} />
         </div>
         <p style={{ margin: '0 0 16px', fontSize: 12, color: 'var(--ta-text-muted)' }}>
           Básico siempre se incluye. Elige qué más va en el PDF.

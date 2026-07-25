@@ -9,8 +9,28 @@
 // Timestamp: 2026-07-17
 
 import { useEffect } from 'react'
+import { useMap } from 'react-leaflet'
 import { IconoCerrarLightbox, IconoFlecha } from './iconos'
 import './componentesCompartidos.css'
+
+// --- fix de tamaño del mapa (Leaflet) -------------------------------------
+// 24 jul 2026, reportado por Okta en el tema Elegance ("el mapa no responde
+// al mouse hasta que doy clic"): mismo bug ya conocido y resuelto en
+// ListadoPropiedades.jsx (CRM) — si el contenedor del mapa no tenía su alto
+// final calculado cuando Leaflet se montó (aquí `.pe-mapa`/`.pp-mapa` usan
+// `aspect-ratio` en CSS, que a veces resuelve después del primer render),
+// Leaflet cachea un tamaño interno equivocado y el drag/pan no funciona
+// bien hasta que algo fuerza un recálculo. `invalidateSize()` en un
+// timeout corto tras montar corrige el tamaño cacheado sin depender de que
+// el usuario interactúe primero. Compartido entre los 3 temas.
+export function InvalidarTamanoMapa() {
+  const map = useMap()
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 250)
+    return () => clearTimeout(t)
+  }, [map])
+  return null
+}
 
 // --- modal de código QR (liga a la página pública) -----------------------
 // 18 jul 2026, a pedido de Okta: opción de compartir la liga como código

@@ -11,7 +11,7 @@ import { useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
-import { Marca, Lightbox, ModalQR } from '../../componentesCompartidos'
+import { Marca, Lightbox, ModalQR, InvalidarTamanoMapa } from '../../componentesCompartidos'
 import { resetBoton, crearIconoMapa } from '../../utilidadesUI'
 import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoCorreo, IconoFoto } from '../../iconos'
 import './estandar.css'
@@ -83,9 +83,18 @@ export default function PresentacionEstandar({ datos }) {
   const {
     propiedad, fotos, perfil, acento,
     marcaTexto, telefonoPrincipal, telefonoWa, precioTexto,
-    tieneUbicacion, amenidadesActivas, mensajeWa,
+    tieneUbicacion, amenidadesActivas, terminosRenta, mensajeWa,
     compartido, compartirLiga,
   } = datos
+
+  // 24 jul — solo aplica a propiedades en renta; si no hay nada capturado
+  // (ficha vieja o campos vacíos) la tarjeta ni se pinta.
+  const hayTerminosRenta = propiedad.operacion === 'renta' && (
+    tieneValor(terminosRenta.meses_deposito) ||
+    tieneValor(terminosRenta.meses_minimo_contrato) ||
+    tieneValor(terminosRenta.requisitos_fisica) ||
+    tieneValor(terminosRenta.requisitos_moral)
+  )
 
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [mostrarQR, setMostrarQR] = useState(false)
@@ -153,6 +162,40 @@ export default function PresentacionEstandar({ datos }) {
             </div>
           )}
 
+          {hayTerminosRenta && (
+            <div style={{ background: '#fff', border: '0.5px solid var(--ta-border)', borderRadius: 12, padding: '18px 20px', marginBottom: 20 }}>
+              <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 500, color: 'var(--ta-text)' }}>Términos de renta</p>
+              {(tieneValor(terminosRenta.meses_deposito) || tieneValor(terminosRenta.meses_minimo_contrato)) && (
+                <div style={{ display: 'flex', gap: 24, marginBottom: 14 }}>
+                  {tieneValor(terminosRenta.meses_deposito) && (
+                    <div>
+                      <p style={{ margin: 0, fontSize: 19, fontWeight: 600, color: 'var(--ta-text)' }}>{terminosRenta.meses_deposito}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--ta-text-muted)' }}>Meses de depósito</p>
+                    </div>
+                  )}
+                  {tieneValor(terminosRenta.meses_minimo_contrato) && (
+                    <div>
+                      <p style={{ margin: 0, fontSize: 19, fontWeight: 600, color: 'var(--ta-text)' }}>{terminosRenta.meses_minimo_contrato}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--ta-text-muted)' }}>Meses mín. de contrato</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {tieneValor(terminosRenta.requisitos_fisica) && (
+                <div style={{ marginBottom: tieneValor(terminosRenta.requisitos_moral) ? 14 : 0 }}>
+                  <p style={{ margin: '0 0 4px', fontSize: 12.5, fontWeight: 500, color: 'var(--ta-text)' }}>Requisitos — persona física</p>
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: 'var(--ta-text-muted)', whiteSpace: 'pre-line' }}>{terminosRenta.requisitos_fisica}</p>
+                </div>
+              )}
+              {tieneValor(terminosRenta.requisitos_moral) && (
+                <div>
+                  <p style={{ margin: '0 0 4px', fontSize: 12.5, fontWeight: 500, color: 'var(--ta-text)' }}>Requisitos — persona moral</p>
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: 'var(--ta-text-muted)', whiteSpace: 'pre-line' }}>{terminosRenta.requisitos_moral}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {tieneUbicacion && (
             <div style={{ background: '#fff', border: '0.5px solid var(--ta-border)', borderRadius: 12, overflow: 'hidden' }}>
               <p style={{ margin: 0, padding: '16px 20px 12px', fontSize: 14, fontWeight: 500, color: 'var(--ta-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -168,6 +211,7 @@ export default function PresentacionEstandar({ datos }) {
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                   <Marker position={[Number(propiedad.lat), Number(propiedad.lng)]} icon={iconoMapa} />
+                  <InvalidarTamanoMapa />
                 </MapContainer>
               </div>
             </div>
@@ -226,7 +270,6 @@ export default function PresentacionEstandar({ datos }) {
               )}
               <div>
                 {marcaTexto && <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--ta-text)' }}>{marcaTexto}</p>}
-                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--ta-text-muted)' }}>Asesora inmobiliaria</p>
               </div>
             </div>
             {/* 21 jul 2026: teléfono pasa de texto plano a link `tel:`

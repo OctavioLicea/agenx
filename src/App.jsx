@@ -10,7 +10,7 @@
 //   Contactos (evita refetch/remount innecesario al navegar entre módulos).
 // Timestamp: 2026-07-13, 21:41 hrs
 
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { supabase } from './lib/supabaseClient'
 import LoginForm from './features/auth/LoginForm'
 import ListadoPropiedades from './features/propiedades/ListadoPropiedades'
@@ -52,6 +52,15 @@ function App() {
   const [listadoContactosVersion, setListadoContactosVersion] = useState(0)
   const [listadoInteraccionesVersion, setListadoInteraccionesVersion] = useState(0)
   const [listadoCitasVersion, setListadoCitasVersion] = useState(0)
+  // 23 jul 2026, a pedido de Okta: el fix del 18 jul (ver comentario abajo)
+  // resuelve la navegación entre vistas, pero desde 'buscador' (el punto de
+  // partida) un atrás más seguía sacando de la app sin avisar — nunca se
+  // validó en celular real. avisoSalirRef controla la ventana de 2s del
+  // patrón "doble atrás para salir" (mismo patrón que WhatsApp/apps
+  // Android): el primer atrás desde 'buscador' se cancela y muestra un
+  // toast; un segundo atrás dentro de esos 2s sí deja salir de verdad.
+  const avisoSalirRef = useRef(false)
+  const [mostrarAvisoSalir, setMostrarAvisoSalir] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -112,14 +121,31 @@ function App() {
   // partida ("buscador") para que el primer atrás navegue dentro de la
   // app en vez de salir de ella.
   useEffect(() => {
-    window.history.replaceState({ vista: 'buscador', propiedadSeleccionada: null, contactoSeleccionado: null }, '')
+    const estadoBase = { vista: 'buscador', propiedadSeleccionada: null, contactoSeleccionado: null }
+    window.history.replaceState(estadoBase, '')
 
+    // 23 jul 2026: cuando `evento.state` viene vacío es porque el atrás ya
+    // salió de todo lo que la app controla — antes esto simplemente
+    // mostraba 'buscador' y dejaba que el navegador siguiera saliendo de la
+    // PWA sin avisar. Ahora, la primera vez, se cancela la salida
+    // (pushState vuelve a dejar una entrada de la app) y se muestra un
+    // toast por 2s; si el atrás se repite dentro de esa ventana, ya no se
+    // vuelve a cancelar — se deja salir de verdad.
     const alRetroceder = (evento) => {
       const estado = evento.state
       if (!estado) {
         setVista('buscador')
         setPropiedadSeleccionada(null)
         setContactoSeleccionado(null)
+        if (!avisoSalirRef.current) {
+          avisoSalirRef.current = true
+          window.history.pushState(estadoBase, '')
+          setMostrarAvisoSalir(true)
+          setTimeout(() => {
+            avisoSalirRef.current = false
+            setMostrarAvisoSalir(false)
+          }, 2000)
+        }
         return
       }
       setVista(estado.vista)
@@ -318,6 +344,29 @@ function App() {
             onPerfilActualizado={() => setPerfilVersion((v) => v + 1)}
           />
         </Suspense>
+      )}
+
+      {mostrarAvisoSalir && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            background: 'rgba(31, 41, 35, 0.92)',
+            color: '#FFFFFF',
+            fontSize: 13,
+            padding: '10px 18px',
+            borderRadius: 20,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Toca atrás de nuevo para salir
+        </div>
       )}
     </div>
   )

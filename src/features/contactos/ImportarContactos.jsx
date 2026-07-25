@@ -69,6 +69,7 @@
 
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import BotonCerrar from '../../components/BotonCerrar'
 
 const CAMPOS_MAPEO = [
   { key: 'nombre', label: 'Nombre' },
@@ -183,14 +184,6 @@ function autoDetectarMapeo(headers) {
     rol: buscar(['rol', 'role', 'puesto', 'cargo', 'title']),
     notas: buscar(['nota', 'note', 'comentario', 'observacion', 'observación']),
   }
-}
-
-function IconoX() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-      <path d="M18 6 6 18" /><path d="M6 6l12 12" />
-    </svg>
-  )
 }
 
 const estiloOverlay = { position: 'fixed', inset: 0, background: 'rgba(42,42,40,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: 16, boxSizing: 'border-box' }
@@ -344,13 +337,9 @@ export default function ImportarContactos({ onCerrar, onImportado }) {
 
   const encabezado = (titulo, mostrarCerrar = true) => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-      {mostrarCerrar ? (
-        <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: 'none', background: 'none', color: 'var(--ta-text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderRadius: 8 }}>
-          <IconoX />
-        </button>
-      ) : <span style={{ width: 44 }} />}
-      <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>{titulo}</span>
       <span style={{ width: 44 }} />
+      <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ta-text)' }}>{titulo}</span>
+      {mostrarCerrar ? <BotonCerrar onClick={onCerrar} /> : <span style={{ width: 44 }} />}
     </div>
   )
 
