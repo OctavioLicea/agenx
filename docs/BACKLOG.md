@@ -8,7 +8,20 @@
 > sueltos anteriores (Sesiones 2 a 9) — esos quedan como archivo
 > histórico, no se vuelven a tocar.
 >
-> Última actualización: 24 de julio 2026 (sesión 22, continuación 4 —
+> Última actualización: 27 de julio 2026 (sesión 23 — puesta al día del
+> estado real contra el repo: deploy confirmado por Okta ("Published"),
+> comit del candado multi-usuario confirmado como YA hecho y pusheado
+> (`main` == `origin/main`), pedido de WhatsApp en página pública
+> DESCARTADO por Okta, y corregido el hallazgo falso de
+> `ubicacion_conectividad`. Ver secciones respectivas abajo.)
+>
+> Actualización anterior: 24 de julio 2026 (sesión 22, continuación 4 —
+> pedido nuevo de Okta agregado al backlog, sin construir todavía: botón
+> de "prerrequisitos" + captura de lead por WhatsApp en la página
+> pública, los 3 temas. Ver sección "🏠 Campos de renta en la ficha base"
+> abajo.)
+>
+> Actualización anterior: 24 de julio 2026 (sesión 22, continuación 4 —
 > fix de precarga de plantilla en propiedades ya existentes en renta +
 > botón manual "Cargar de Mi Perfil"; instrucciones de comit/deploy
 > entregadas a Okta, con un hallazgo de historial git divergido que se
@@ -86,10 +99,16 @@
 
 ## 🚀 Pendiente inmediato — Deploy
 
-- [ ] **Comitear y desplegar todo lo acumulado desde la Sesión 22
-  (candado multi-usuario) hasta hoy 24 jul (campos de renta)** —
-  instrucciones entregadas a Okta para correr desde su máquina, ver
-  detalle abajo. Nada de esto se ha comiteado todavía.
+- [x] **Comitear y desplegar todo lo acumulado desde la Sesión 22
+  (candado multi-usuario) hasta 24 jul (campos de renta)** — CERRADO.
+  Comit hecho por Okta desde su máquina: `c37dcb7` (campos de renta +
+  soft-delete + fixes de Elegance/Estándar), encima de `fbde1f7`
+  (candado multi-usuario). Verificado el 27 jul en el checkout real:
+  `main` está sincronizado con `origin/main` (0 ahead / 0 behind), el
+  historial divergido quedó reconciliado y `docs/bitacora/2026-07-23.md`
+  está de vuelta en el repo. **Deploy confirmado por Okta el 27 jul**
+  ("Published") — producción ya trae candado multi-usuario, botón de
+  correo y campos de renta.
 - [x] **Hallazgo al preparar el comit (24 jul): historial divergido —
   `main` local mostraba "ahead 1, behind 1" contra `origin/main`.**
   Diagnosticado con `git diff` entre ambos commits: son el mismo cambio
@@ -395,7 +414,7 @@
 - [ ] **Pendiente de probar con Nydia**: los 3 estilos son un punto de partida — falta que Nydia los use con una propiedad real y diga si el tono/formato le sirve o si hace falta ajustar alguno.
 - [ ] Por ahora es solo Facebook (aunque el texto generado, al ser plano, también sirve para Instagram/WhatsApp Estados con copiar-pegar) — no hay botones separados por red social.
 
-## 🔑 Multi-usuario: candado de acceso + invitaciones con contraseña propia (22-23 jul) — FUNCIONA DE PUNTA A PUNTA, verificado en BD, falta comitear
+## 🔑 Multi-usuario: candado de acceso + invitaciones con contraseña propia (22-23 jul) — CERRADO: funciona de punta a punta, verificado en BD, comiteado y desplegado
 
 - [x] **Hallazgo de arquitectura**: Supabase Auth es *por proyecto*, no por app — este proyecto (`NYOWedding`) hospeda TuAsesor (schema `tuasesor`) y **ivent** (schema `public`), compartiendo `auth.users`. RLS por schema separa los datos, no el login.
 - [x] **Riesgo real confirmado**: cuentas "huérfanas" (sesión válida en el proyecto, sin fila en `tuasesor.perfiles`) podían entrar a TuAsesor en producción antes de este candado: `andy.liceag@gmail.com`, `olicea@hebmex.com`. Con el candado desplegado, ambas quedan bloqueadas automáticamente al no tener `nombre_completo`/`nombre_comercial`.
@@ -409,7 +428,7 @@
   2. **La bandera `activo` "envenenada" por StrictMode**: React monta cada componente 2 veces en dev (monta → desmonta → monta). Un primer fix (ref `yaCorrio`) evitó que `setSession()` se llamara dos veces, pero no bastaba: la bandera `activo` vivía como variable local de cada invocación del efecto — el desmontaje falso de StrictMode la apagaba en la closure del primer montaje, y cuando por fin llegaba la respuesta exitosa de `setSession()` (confirmado con logs: `activo? false session?.user? true`), el código la veía en `false` y abortaba sin nunca poner `estado='listo'`, pese a que la sesión sí se había establecido bien. Fix: `activoRef` (ref compartido, no variable local) que se reactiva a `true` en cada invocación del efecto — para cuando la promesa de la primera invocación resuelve, refleja el estado real y no un snapshot congelado.
 - [x] **Probado de punta a punta y verificado en base de datos** (23 jul): invitación → `EstablecerPassword` → contraseña + perfil → candado → CRM. Cuenta de prueba `octavioliceade@hotmail.com` completó el flujo completo; `tuasesor.perfiles` confirma `nombre_completo: "OCTAVIO LICEA"`, `nombre_comercial: "Okta Licea"`.
 - [x] **Bloqueante antes de desplegar a producción — resuelto (23 jul, misma sesión)**: la propia cuenta de Okta (`octaviolicea1@gmail.com`) seguía sin `nombre_comercial` en `perfiles`. Se consideró borrar la cuenta en vez de completarla, pero un intento de `DELETE FROM auth.users` se detuvo solo gracias a una FK: esta cuenta también tiene un evento con fotos en **ivent** (schema `public`, mismo proyecto — `auth.users` es compartida entre las dos apps), y el borrado en cascada se hubiera llevado ese evento entre las patas. La transacción falló completa (sin cambios) por la FK `photos → events`, no por una verificación previa de Claude — **lección aplicada de aquí en adelante**: cualquier `DELETE` sobre una tabla compartida entre TuAsesor e ivent revisa primero las dependencias en AMBOS schemas y se confirma con Okta antes de ejecutar, no después de que falle. Decisión final: no borrar la cuenta, completar el perfil — `nombre_comercial` actualizado a **"Octavio C. Licea"** vía SQL directo, confirmado con `returning`. Nydia ya tenía los 4 campos completos, no le afectaba este bloqueante.
-- [ ] **Falta comitear**: `main.jsx`, `App.jsx`, `src/lib/supabaseClient.js`, `src/features/auth/EstablecerPassword.jsx`, `scripts/invitar-usuario.mjs` — bloqueado en Cowork por el bug conocido de sandbox (`.git/index.lock`, permiso denegado); comandos ya entregados a Okta para correr desde su máquina. **Okta lo va a hacer al final del día de hoy (23 jul).**
+- [x] **Comiteado y pusheado** (confirmado el 27 jul leyendo el repo real): `main.jsx`, `App.jsx`, `src/lib/supabaseClient.js`, `src/features/auth/EstablecerPassword.jsx`, `scripts/invitar-usuario.mjs` viajaron en el commit `fbde1f7` ("Invite flow multi-usuario: candado de acceso, redirect_to correcto via Admin API, fix StrictMode + detectSessionInUrl"), ya en `origin/main`. La nota anterior de "falta comitear" quedó obsoleta varios días — corregida aquí.
 - [ ] **Falta agregar las Redirect URLs al proyecto de Supabase** si no se hizo ya de forma permanente (se agregaron durante esta sesión vía dashboard — confirmar que sigan ahí en la próxima sesión, no se puede verificar por SQL).
 - [ ] **Cuenta de prueba `octavioliceade@hotmail.com`** quedó con perfil completo y dentro del CRM tras la prueba exitosa. **Decidido (23 jul): Okta la borra él mismo**, no Claude — dado el hallazgo de arriba (`auth.users` compartida con ivent), cualquier borrado de cuenta en este proyecto se revisa a mano antes de ejecutar.
 
@@ -503,9 +522,30 @@
   que ya existe en `CampoEditable` del mismo archivo, replicado a
   propósito en el nuevo `CampoTextoLargo` — no es una regresión de un
   patrón nuevo, es el mismo patrón ya aceptado en este archivo).
-- [ ] **Pendiente de probar con Nydia**: cargar una propiedad real en
-  renta, confirmar que la plantilla se precarga bien y que el texto se
-  ve bien en el PDF/página pública con viñetas escritas a mano.
+- [x] **Probado con Nydia (27 jul) — funciona bien.** Cargó una
+  propiedad real en renta; la precarga de la plantilla, el PDF y la
+  página pública quedaron correctos.
+- [ ] **Nydia pidió unos cambios sobre esto (27 jul) — falta detallarlos
+  y construirlos.** Pendiente de que Okta describa cuáles son; se
+  documentan aquí en cuanto se definan.
+- [x] **DESCARTADO por Okta (27 jul) — no se hará.** Se deja registrado
+  para que no vuelva a aparecer como pendiente en la próxima sesión. El
+  pedido original era: botón de "prerrequisitos" + captura de lead vía
+  WhatsApp en la página pública.
+  En la sección de Términos de renta de la página pública, agregar un
+  botón dedicado para los requisitos (hoy solo se ven como tarjeta de
+  texto, sin CTA propio); y dentro de ese flujo, un botón/CTA "Mándalos
+  a mi WhatsApp" — al usarlo se captura nombre y teléfono del prospecto.
+  Aplica a los 3 temas (Estándar, Elegance, Nocturno).
+  **Sin definir todavía (aclarar antes de construir)**: ¿el botón de
+  "prerrequisitos" es solo un ancla/scroll a la tarjeta que ya existe, o
+  un CTA nuevo aparte de ella? ¿la captura de nombre/teléfono es un
+  mini-formulario ANTES de abrir WhatsApp (arma el link `wa.me` con esos
+  datos en el mensaje, todo del lado del cliente, sin tocar Supabase) o
+  debe guardarse como contacto/interacción real en el CRM (like el
+  "Formulario de leads en la página pública → CRM" ya diferido a Fase 2
+  más abajo, que requeriría INSERT público con RLS/anti-spam — no es
+  solo visual)? Depende de la respuesta, el alcance cambia bastante.
 - [x] **Fix (24 jul, mismo día, reportado por Okta): propiedades YA
   existentes en renta no precargaban los requisitos.** Causa: la
   precarga solo estaba conectada a `cambiarOperacion()`, que dispara al
@@ -520,6 +560,30 @@
   su plantilla más adelante y quiere traerla a una ficha que ya tenía
   algo escrito (ese caso el `useEffect` no lo pisa a propósito). Build
   verificado limpio.
+
+## 📍 `ubicacion_conectividad` — hallazgo del 24 jul CORREGIDO (27 jul)
+
+- [x] **El hallazgo anterior era falso.** La bitácora del 24 jul dejó
+  anotado que `ficha.ubicacion_conectividad` "existe en `FICHA_DEFAULT`
+  pero no tiene UI en ninguna pestaña", con la pregunta de si convenía
+  limpiarlo. Verificado en el código el 27 jul: **sí tiene UI completa**
+  — la sección "Zona y conectividad" (zona/colonia de referencia, puntos
+  de interés cercanos, escuelas, hospitales, transporte) vive en
+  `FichaMediaUbic.jsx` (pestaña "Fotos y ubicación"), líneas ~698-716,
+  con sus setters `setUC`/`setServicio` y cableada desde
+  `PropiedadForm.jsx`. Se había movido ahí desde `FichaTecnica.jsx` en
+  una sesión anterior, que es por qué no se encontró buscando en Ficha
+  técnica. **No se limpia nada.**
+- [ ] **Hueco real encontrado en el camino**: esos datos NO aparecen ni
+  en el PDF exportado (`ExportaFicha.jsx`) ni en la página pública
+  (ninguno de los 3 temas) — `grep` de `conectividad` en ambos no
+  devuelve nada. Nydia captura escuelas/hospitales/transporte y hoy solo
+  se ven dentro del CRM. Decisión pendiente con Okta: ¿se agregan al PDF
+  y/o a la página pública, o se quedan como dato interno a propósito?
+  (En la ficha técnica del brief original, "servicios en la zona" estaba
+  listado como algo que sube el valor percibido del inmueble.)
+
+---
 
 ## 👤 Ficha de usuario (Mi perfil) — CERRADO
 
