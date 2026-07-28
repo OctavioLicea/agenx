@@ -8,12 +8,29 @@
 > sueltos anteriores (Sesiones 2 a 9) — esos quedan como archivo
 > histórico, no se vuelven a tocar.
 >
-> Última actualización: 27 de julio 2026 (sesión 23 — puesta al día del
+> Última actualización: 27 de julio 2026 (sesión 23, noche — 2ª ronda de
+> construcción: toggle de página pública en el plano (reemplaza el botón
+> con confirm de la ronda anterior) y liga "¿Eres asesor? Abrir en
+> TuAsesor" al pie de los 3 temas, con su deep link en `App.jsx`.
+> Descartado subir el límite de fotos. Build y lint sin regresiones.)
+>
+> Actualización anterior: 27 de julio 2026 (sesión 23, tarde — construido:
+> precio/contacto arriba en móvil en los 3 temas, plano publicable desde
+> la Bóveda con su sección en los 3 temas, hook de back para los modales
+> públicos, y "Zona y conectividad" en el PDF y en los 3 temas. Build y
+> lint verificados sin regresiones. **Nada de esto está comiteado ni
+> desplegado todavía** — ver "🚀 Pendiente inmediato — Deploy".)
+>
+> Actualización anterior: 27 de julio 2026 (sesión 23 — puesta al día del
 > estado real contra el repo: deploy confirmado por Okta ("Published"),
 > comit del candado multi-usuario confirmado como YA hecho y pusheado
 > (`main` == `origin/main`), pedido de WhatsApp en página pública
-> DESCARTADO por Okta, y corregido el hallazgo falso de
-> `ubicacion_conectividad`. Ver secciones respectivas abajo.)
+> DESCARTADO por Okta, corregido el hallazgo falso de
+> `ubicacion_conectividad`, y Redirect URLs de Supabase confirmadas por
+> Okta en el dashboard. Decidido exponer "Zona y conectividad" en el PDF
+> y en la página pública, **en espera** de que Okta pase unos cambios
+> pequeños más para construir todo junto. Ver secciones respectivas
+> abajo.)
 >
 > Actualización anterior: 24 de julio 2026 (sesión 22, continuación 4 —
 > pedido nuevo de Okta agregado al backlog, sin construir todavía: botón
@@ -98,6 +115,18 @@
 ---
 
 ## 🚀 Pendiente inmediato — Deploy
+
+- [ ] **Comitear y desplegar lo construido el 27 jul (sesión 23)** —
+  precio/contacto arriba en móvil (3 temas), plano publicable + sección
+  en los 3 temas, toggle de publicación, liga "Abrir en TuAsesor" al pie
+  de los 3 temas + deep link en `App.jsx`, hook de back para modales
+  públicos, "Zona y conectividad" en PDF y página pública, más los
+  cambios de `CLAUDE.md` y este archivo. Verificado con build y lint limpios (sin errores
+  nuevos contra el baseline), pero **sin probar en la app corriendo**.
+  La migración `publicar_planos_en_pagina_publica` **ya está aplicada en
+  Supabase** — si al probar la Bóveda marca error de columna
+  desconocida, recargar el schema desde el Dashboard (bug de caché de
+  PostgREST ya documentado: el `NOTIFY` por SQL no basta).
 
 - [x] **Comitear y desplegar todo lo acumulado desde la Sesión 22
   (candado multi-usuario) hasta 24 jul (campos de renta)** — CERRADO.
@@ -429,7 +458,7 @@
 - [x] **Probado de punta a punta y verificado en base de datos** (23 jul): invitación → `EstablecerPassword` → contraseña + perfil → candado → CRM. Cuenta de prueba `octavioliceade@hotmail.com` completó el flujo completo; `tuasesor.perfiles` confirma `nombre_completo: "OCTAVIO LICEA"`, `nombre_comercial: "Okta Licea"`.
 - [x] **Bloqueante antes de desplegar a producción — resuelto (23 jul, misma sesión)**: la propia cuenta de Okta (`octaviolicea1@gmail.com`) seguía sin `nombre_comercial` en `perfiles`. Se consideró borrar la cuenta en vez de completarla, pero un intento de `DELETE FROM auth.users` se detuvo solo gracias a una FK: esta cuenta también tiene un evento con fotos en **ivent** (schema `public`, mismo proyecto — `auth.users` es compartida entre las dos apps), y el borrado en cascada se hubiera llevado ese evento entre las patas. La transacción falló completa (sin cambios) por la FK `photos → events`, no por una verificación previa de Claude — **lección aplicada de aquí en adelante**: cualquier `DELETE` sobre una tabla compartida entre TuAsesor e ivent revisa primero las dependencias en AMBOS schemas y se confirma con Okta antes de ejecutar, no después de que falle. Decisión final: no borrar la cuenta, completar el perfil — `nombre_comercial` actualizado a **"Octavio C. Licea"** vía SQL directo, confirmado con `returning`. Nydia ya tenía los 4 campos completos, no le afectaba este bloqueante.
 - [x] **Comiteado y pusheado** (confirmado el 27 jul leyendo el repo real): `main.jsx`, `App.jsx`, `src/lib/supabaseClient.js`, `src/features/auth/EstablecerPassword.jsx`, `scripts/invitar-usuario.mjs` viajaron en el commit `fbde1f7` ("Invite flow multi-usuario: candado de acceso, redirect_to correcto via Admin API, fix StrictMode + detectSessionInUrl"), ya en `origin/main`. La nota anterior de "falta comitear" quedó obsoleta varios días — corregida aquí.
-- [ ] **Falta agregar las Redirect URLs al proyecto de Supabase** si no se hizo ya de forma permanente (se agregaron durante esta sesión vía dashboard — confirmar que sigan ahí en la próxima sesión, no se puede verificar por SQL).
+- [x] **Redirect URLs del proyecto de Supabase — CONFIRMADAS por Okta (27 jul)** revisando el dashboard a mano (Authentication → URL Configuration → Redirect URLs): `http://localhost:5173/**` y `https://tuasesor.eventosytech.com/**` siguen ahí, con el wildcard `/**`. El Site URL compartido no se tocó (apunta a ivent a propósito; por eso existe `scripts/invitar-usuario.mjs` con `redirectTo` explícito). No se puede verificar por SQL, así que si algún día el invite vuelve a rebotar, este es el primer lugar a revisar.
 - [ ] **Cuenta de prueba `octavioliceade@hotmail.com`** quedó con perfil completo y dentro del CRM tras la prueba exitosa. **Decidido (23 jul): Okta la borra él mismo**, no Claude — dado el hallazgo de arriba (`auth.users` compartida con ivent), cualquier borrado de cuenta en este proyecto se revisa a mano antes de ejecutar.
 
 ## 🧪 QA / Playwright — arrancado y desinstalado el mismo día (23 jul)
@@ -574,14 +603,150 @@
   `PropiedadForm.jsx`. Se había movido ahí desde `FichaTecnica.jsx` en
   una sesión anterior, que es por qué no se encontró buscando en Ficha
   técnica. **No se limpia nada.**
-- [ ] **Hueco real encontrado en el camino**: esos datos NO aparecen ni
+- [x] **Hueco real encontrado en el camino**: esos datos NO aparecen ni
   en el PDF exportado (`ExportaFicha.jsx`) ni en la página pública
   (ninguno de los 3 temas) — `grep` de `conectividad` en ambos no
   devuelve nada. Nydia captura escuelas/hospitales/transporte y hoy solo
-  se ven dentro del CRM. Decisión pendiente con Okta: ¿se agregan al PDF
-  y/o a la página pública, o se quedan como dato interno a propósito?
-  (En la ficha técnica del brief original, "servicios en la zona" estaba
-  listado como algo que sube el valor percibido del inmueble.)
+  se ven dentro del CRM.
+- [x] **CONSTRUIDO (27 jul, sesión 23).** "Zona y conectividad" ya sale
+  en el **PDF de ficha técnica** (`ExportaFicha.jsx`) y en los **3 temas**
+  de la página pública. Decisión de diseño tomada al construirlo: en el
+  PDF va bajo el check que ya existe de "Ficha técnica" (que ahora dice
+  "Equipamiento, amenidades, zona y conectividad"), **no** como sub-check
+  propio — no es información sensible como Historial o Situación fiscal,
+  que sí tienen su check apagado por default. Cada renglón se pinta solo
+  si tiene valor.
+
+---
+
+## 📐 Plano publicable en la página pública (27 jul, sesión 23) — CONSTRUIDO, sin probar en real
+
+Pedido de Okta: poder subir un plano y mostrarlo en la página pública
+detrás de un botón, con modal que cierre bien.
+
+- [x] **Hallazgo**: la Bóveda ya tenía el tipo "Planos arquitectónicos" y
+  ya aceptaba PDF/JPG/PNG — subir un plano se podía desde antes. Lo que
+  no existía era exponerlo públicamente.
+- [x] **Decisión de arquitectura (opción B de 3 planteadas a Okta)**: el
+  plano sigue viviendo en `bucket-propiedad-vault` (privado). Publicarlo
+  **copia** el archivo a `bucket-propiedad-media` (el bucket público de
+  las fotos) bajo `{propiedad_id}/planos/`. Se descartaron: (A) guardar
+  el plano directo en el bucket público — obligaría a subirlo dos veces
+  si también lo quiere en la Bóveda; (C) Edge Function que firme URLs
+  para anónimos — sería la primera Edge Function del proyecto (hoy hay
+  cero, verificado en Supabase) y el PDF se construyó client-side justo
+  para evitarlas. **No hace falta servidor**: Nydia está autenticada y ya
+  tiene permiso de lectura en el vault y de escritura en el bucket
+  público, así que la copia ocurre en el cliente.
+- [x] **Migración `publicar_planos_en_pagina_publica`**: columnas
+  `publicado` (bool, default false) y `publico_storage_path` (text) en
+  `documentos_propiedad`, + vista `planos_publicos` (filtra por propiedad
+  publicada + documento publicado + tipo `planos`; **nunca expone
+  `storage_path`**, la ruta del original privado) con `SELECT` a
+  `anon`/`authenticated` y nada más, igual que las otras vistas públicas.
+- [x] **Toggle de "Página pública"** en `FichaDocumentos.jsx`: solo
+  aparece en documentos tipo `planos`, como renglón propio dentro de la
+  tarjeta del documento, con el mismo formato que el toggle de la ficha
+  básica (título + subtítulo de estado + switch). Despublicar borra la
+  copia pública; borrar el documento también.
+  **2ª vuelta (mismo día, pedido de Okta: "usa un toggle, como cuando
+  hacemos una propiedad pública")**: la primera versión era un botón de
+  globo con `confirm()` y un chip verde. Se cambió por el toggle y se
+  quitó el `confirm()` — el aviso de que el plano queda visible sin login
+  ahora vive como subtítulo permanente ("Visible sin login para quien
+  tenga la liga"), a la vista siempre en vez de en un diálogo que se ve
+  una sola vez. La acción es reversible en un clic, así que la fricción
+  del confirm no compraba nada.
+- [x] **Guardia de seguridad**: solo se pueden publicar **PDF, JPG y
+  PNG**. Deja fuera el SVG a propósito — el vault lo permite porque es
+  privado y de un solo usuario, pero una copia pública sí tendría
+  superficie de ataque (SVG puede traer script embebido).
+- [x] **Sección "Plano" en los 3 temas** de la página pública. Si el
+  plano es imagen abre un modal con scroll/zoom; si es PDF abre en
+  pestaña nueva (decisión de Okta — un `<iframe>` de PDF no es confiable
+  en celular, sobre todo iOS).
+- [ ] **Pendiente de probar en real**: publicar un plano de verdad desde
+  la Bóveda y confirmar que se ve bien en los 3 temas, en celular y en
+  desktop, tanto en imagen como en PDF.
+- [ ] **Pendiente de decidir**: hoy la subida del plano vive solo en la
+  Bóveda (5ª pestaña). El pedido original de Okta decía "en la ficha
+  técnica pon una sección para subir un plano" — al elegir la opción B
+  eso quedó cubierto por la Bóveda, pero **no** se agregó nada en la
+  pestaña de Ficha técnica. Si Nydia lo busca ahí y no lo encuentra,
+  falta decidir si se pone un atajo.
+
+---
+
+## ↩️ Back en los modales de la página pública (27 jul, sesión 23)
+
+- [x] **Hallazgo**: la app (`App.jsx`) sí maneja el botón físico de atrás
+  con `pushState`/`popstate`, pero la **página pública** no — sus modales
+  (lightbox de fotos, QR) solo cerraban con Escape o con su botón, así
+  que el atrás de Android sacaba al prospecto de la página completa.
+- [x] **Hook compartido `useCerrarConBack`** (`src/features/publico/`):
+  empuja una entrada al historial al abrir y cierra el modal al
+  retroceder; si el modal se cierra por Escape/botón, retira su propia
+  entrada para no dejar "atrás" fantasma. Mismo patrón que `App.jsx`,
+  sin dependencias nuevas. Aplicado a los 3 modales (plano, lightbox, QR).
+- [ ] **Pendiente de probar en celular real** — el comportamiento del
+  botón físico no se puede verificar desde Cowork.
+
+---
+
+## 🔗 Liga de la página pública al CRM (27 jul, sesión 23)
+
+Pedido de Okta: "¿cómo ligamos la página pública con la app? abajo
+podemos poner una liga a TuAsesor, para quienes tienen credenciales."
+
+- [x] **Pie "¿Eres asesor? Abrir en TuAsesor"** en los 3 temas
+  (`<PieTuAsesor>` en `componentesCompartidos.jsx`, con los colores de
+  cada tema pasados como props). Apunta a `/?propiedad=<id>`.
+  **Decisión visual**: liga discreta al pie tras una divisoria, no botón
+  grande — esta página la ven clientes, y un botón que los mande a un
+  login les quitaría peso a los CTAs reales (WhatsApp, ficha técnica). La
+  pregunta "¿Eres asesor?" filtra sola.
+- [x] **Consumo del parámetro en `App.jsx`**: abre la ficha de esa
+  propiedad directo. Funciona igual con sesión previa que entrando desde
+  cero — el parámetro sigue en la URL mientras el asesor escribe su
+  contraseña, y el efecto solo dispara cuando el candado de acceso ya
+  aprobó la sesión. No hizo falta `sessionStorage`.
+- [x] **Caso "tengo cuenta pero la propiedad no es mía"** (real ahora que
+  hay multi-usuario): RLS no devuelve la fila, y sin manejarlo el asesor
+  vería el buscador sin explicación de por qué su liga "no hizo nada".
+  Se muestra el toast "Esa propiedad no está en tu cuenta." y se queda en
+  el buscador.
+- [x] **Sin exposición nueva**: el id de la propiedad ya viajaba en la
+  URL pública. Quién puede abrirla lo sigue decidiendo RLS.
+- [ ] **Pendiente de probar en real**: entrar por la liga con sesión y
+  sin sesión, y con una cuenta que no sea dueña de esa propiedad.
+
+---
+
+## 📸 Límite de fotos por propiedad
+
+- [x] **Evaluado y descartado (27 jul)**: Okta pidió subirlo de 20 a 25 y
+  después decidió dejarlo en **20**, para no engordar el PDF ni alargar
+  el carrusel de la página pública. Datos que se le pasaron para decidir:
+  el límite de `MAX_ARCHIVOS` es **combinado** (fotos + video), el PDF
+  corta en 12 fotos por su cuenta, y los temas públicos muestran todas
+  sin tope. Si algún día se retoma, ya está el análisis hecho.
+
+---
+
+## 📱 Precio y contacto arriba en móvil (27 jul, sesión 23)
+
+- [x] **Reportado por Okta con captura (tema Elegance)**: al apilarse en
+  móvil, el bloque de precio + botones de WhatsApp + datos de Nydia caía
+  hasta el final, después del mapa. Causa: `.pe-cuerpo` es un grid de 2
+  columnas y el sidebar es el segundo hijo. Corregido con `order: -1` en
+  la media query de móvil — sube el bloque completo debajo de las fotos.
+  Desktop sin cambio (sidebar a la derecha, sticky).
+- [x] **Revisados los otros 2 temas, a pedido de Okta**: Estándar tenía
+  exactamente el mismo problema (mismo fix). Nocturno tenía el problema
+  **inverso** — su hero es `[datos | galería]`, así que en móvil el
+  precio quedaba ANTES de las fotos; se invirtió el orden para
+  homologarlo con los otros dos (fotos → precio).
+- [ ] **Pendiente de probar en celular real** en los 3 temas.
 
 ---
 

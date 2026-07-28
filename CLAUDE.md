@@ -4,6 +4,31 @@ proyecto que uses). No reemplaza nada existente — se agrega como
 sección nueva, de preferencia cerca del inicio.
 -->
 
+## Palabra de acción: "Date" — no construir sin ella
+
+Okta define el trabajo de esta forma: primero pasa una lista de cambios,
+Claude **pregunta** lo que haga falta y propone el alcance, y **solo
+construye cuando Okta escribe la palabra `Date`**.
+
+Reglas:
+
+- **Antes de `Date`**: Claude puede leer el repo, investigar qué archivos
+  toca cada cambio, revisar si algo ya existe, proponer alcance, señalar
+  riesgos y hacer preguntas. **No escribe ni edita código.**
+- **`Date` autoriza únicamente lo que se acordó en esa ronda de
+  preguntas.** No es un permiso abierto: si aparece algo nuevo a medio
+  camino, se plantea y se espera otro `Date`.
+- **Documentación es la excepción**: actualizar `docs/BACKLOG.md` y
+  `docs/bitacora/` no requiere `Date` — es parte del cierre obligatorio
+  descrito abajo.
+- Si Okta pide construir algo sin decir `Date`, preguntarle si va — pudo
+  habérsele olvidado la palabra, pero la duda se aclara antes de tocar
+  archivos.
+
+Establecido el 27 jul 2026 (sesión 23), a prueba.
+
+---
+
 ## Documentación de sesión — obligatorio antes de cerrar
 
 Este proyecto lleva su historial y su estado actual DENTRO del repo, no

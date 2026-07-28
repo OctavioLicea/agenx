@@ -11,7 +11,7 @@ import { useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
-import { Marca, Lightbox, ModalQR, InvalidarTamanoMapa } from '../../componentesCompartidos'
+import { Marca, Lightbox, ModalQR, ModalPlano, PieTuAsesor, InvalidarTamanoMapa } from '../../componentesCompartidos'
 import { resetBoton, crearIconoMapa } from '../../utilidadesUI'
 import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoCorreo, IconoFoto } from '../../iconos'
 import './estandar.css'
@@ -84,6 +84,7 @@ export default function PresentacionEstandar({ datos }) {
     propiedad, fotos, perfil, acento,
     marcaTexto, telefonoPrincipal, telefonoWa, precioTexto,
     tieneUbicacion, amenidadesActivas, terminosRenta, mensajeWa,
+    plano, zonaConectividad, serviciosZona, hayZonaConectividad,
     compartido, compartirLiga,
   } = datos
 
@@ -98,6 +99,8 @@ export default function PresentacionEstandar({ datos }) {
 
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [mostrarQR, setMostrarQR] = useState(false)
+  // 27 jul — solo para planos en imagen; los PDF abren en pestaña nueva.
+  const [mostrarPlano, setMostrarPlano] = useState(false)
   const iconoMapa = useMemo(() => crearIconoMapa(acento), [acento])
 
   return (
@@ -193,6 +196,57 @@ export default function PresentacionEstandar({ datos }) {
                   <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: 'var(--ta-text-muted)', whiteSpace: 'pre-line' }}>{terminosRenta.requisitos_moral}</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 27 jul 2026 — plano publicado desde la Bóveda. Solo existe si
+              Nydia publicó uno. */}
+          {plano && (
+            <div style={{ background: '#fff', border: '0.5px solid var(--ta-border)', borderRadius: 12, padding: '18px 20px', marginBottom: 20 }}>
+              <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 500, color: 'var(--ta-text)' }}>Plano</p>
+              {tieneValor(plano.descripcion) && (
+                <p style={{ margin: '0 0 12px', fontSize: 13, lineHeight: 1.7, color: 'var(--ta-text-muted)' }}>{plano.descripcion}</p>
+              )}
+              {plano.esPdf ? (
+                <a
+                  href={plano.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 44, borderRadius: 10, border: `1px solid ${acento}`, color: acento, fontSize: 13.5, fontWeight: 500, textDecoration: 'none' }}
+                >
+                  Ver plano (PDF)
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setMostrarPlano(true)}
+                  style={{ width: '100%', height: 44, borderRadius: 10, border: `1px solid ${acento}`, background: 'transparent', color: acento, fontSize: 13.5, fontWeight: 500, cursor: 'pointer' }}
+                >
+                  Ver plano
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 27 jul 2026 — Zona y conectividad, renglón por renglón y solo
+              lo que tenga valor. */}
+          {hayZonaConectividad && (
+            <div style={{ background: '#fff', border: '0.5px solid var(--ta-border)', borderRadius: 12, padding: '18px 20px', marginBottom: 20 }}>
+              <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 500, color: 'var(--ta-text)' }}>Zona y conectividad</p>
+              {tieneValor(zonaConectividad.zona_colonia_referencia) && (
+                <p style={{ margin: '0 0 10px', fontSize: 13, lineHeight: 1.7, color: 'var(--ta-text-muted)', whiteSpace: 'pre-line' }}>{zonaConectividad.zona_colonia_referencia}</p>
+              )}
+              {tieneValor(zonaConectividad.puntos_interes_cercanos) && (
+                <p style={{ margin: '0 0 10px', fontSize: 13, lineHeight: 1.7, color: 'var(--ta-text-muted)', whiteSpace: 'pre-line' }}>{zonaConectividad.puntos_interes_cercanos}</p>
+              )}
+              {[['Escuelas', serviciosZona.escuelas], ['Hospitales', serviciosZona.hospitales], ['Transporte', serviciosZona.transporte]]
+                .filter(([, valor]) => tieneValor(valor))
+                .map(([label, valor]) => (
+                  <div key={label} style={{ marginTop: 10 }}>
+                    <p style={{ margin: '0 0 3px', fontSize: 12.5, fontWeight: 600, color: 'var(--ta-text)' }}>{label}</p>
+                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: 'var(--ta-text-muted)', whiteSpace: 'pre-line' }}>{valor}</p>
+                  </div>
+                ))}
             </div>
           )}
 
@@ -294,8 +348,21 @@ export default function PresentacionEstandar({ datos }) {
         </div>
       </div>
 
+      {/* Estándar: usa el acento configurable del asesor, igual que el
+          resto de los elementos interactivos de este tema. */}
+      <PieTuAsesor
+        propiedadId={propiedad.id}
+        colorTexto="var(--ta-text-muted)"
+        colorLiga={acento}
+        colorBorde="var(--ta-border)"
+      />
+
       {mostrarQR && (
         <ModalQR url={window.location.href} titulo={propiedad.titulo} onCerrar={() => setMostrarQR(false)} />
+      )}
+
+      {mostrarPlano && plano && (
+        <ModalPlano plano={plano} onCerrar={() => setMostrarPlano(false)} />
       )}
     </div>
   )

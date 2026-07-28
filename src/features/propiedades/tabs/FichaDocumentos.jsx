@@ -65,6 +65,9 @@ import iconoSvg from '../../../assets/doctypes/svg.png'
 const CODIGO_VIGENCIA_MS = 10 * 60 * 1000 // 10 minutos
 
 const BUCKET = 'bucket-propiedad-vault'
+// 27 jul 2026 — bucket público (el mismo de las fotos). Solo recibe COPIAS
+// de planos que Nydia decidió publicar; el original nunca sale del vault.
+const BUCKET_PUBLICO = 'bucket-propiedad-media'
 const MAX_DOCUMENTO_MB = 20
 
 // Mapeo extensión → content-type explícito para el upload. No se confía en
@@ -91,6 +94,22 @@ const EXTENSION_MIME = {
 // Únicas extensiones habilitadas hoy que traen macros (Word/PowerPoint con
 // macros ni siquiera están en el allow-list del bucket, solo Excel).
 const EXTENSIONES_CON_MACRO = new Set(['xlsm'])
+
+// 27 jul 2026 — extensiones que SÍ se pueden publicar en la página pública.
+// Deliberadamente más corta que la lista del vault: un plano publicado es
+// PDF o imagen, nada más. En particular deja fuera el SVG a propósito — el
+// vault lo permite porque es privado y de un solo usuario (ver nota de
+// cabecera), pero una copia pública sí tendría superficie de ataque: un SVG
+// puede traer script embebido y se serviría desde el dominio del bucket.
+const EXTENSIONES_PUBLICABLES = new Set(['pdf', 'jpg', 'jpeg', 'png'])
+
+// Nombre único de archivo. Vive a nivel de módulo (no inline dentro del
+// componente) porque el linter marca `Date.now()`/`Math.random()` escritos
+// dentro del cuerpo del componente como "impure function during render",
+// aunque se llamen desde un handler asíncrono.
+function nombreUnico(ext) {
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+}
 
 // Tipos seleccionables en el alta manual — excluye 'ficha_exportada', que
 // solo lo escribe ExportaFicha.jsx automáticamente al archivar un PDF.
@@ -496,6 +515,10 @@ export default function FichaDocumentos({ propiedadId }) {
   const [cargando, setCargando] = useState(true)
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState(null)
+  // Id del plano que se está publicando/despublicando ahora mismo — la
+  // copia del archivo tarda, y sin esto se puede dar doble clic y subir
+  // dos copias públicas del mismo plano.
+  const [publicandoId, setPublicandoId] = useState(null)
 
   const [mostrarForm, setMostrarForm] = useState(false)
   const [mostrarEscaner, setMostrarEscaner] = useState(false)
@@ -545,7 +568,7 @@ export default function FichaDocumentos({ propiedadId }) {
     setCargando(true)
     const { data, error: dbError } = await supabase
       .from('documentos_propiedad')
-      .select('id, storage_path, tipo_documento, tipo_otro, nombre_original, descripcion, created_at')
+      .select('id, storage_path, tipo_documento, tipo_otro, nombre_original, descripcion, created_at, publicado, publico_storage_path')
       .eq('propiedad_id', propiedadId)
       .order('created_at', { ascending: false })
 
@@ -675,11 +698,137 @@ export default function FichaDocumentos({ propiedadId }) {
     window.open(data.signedUrl, '_blank')
   }
 
+  // --- publicar / despublicar plano en la página pública -----------------
+  // 27 jul 2026 (sesión 23). El documento sigue viviendo en el vault
+  // privado; publicar COPIA el archivo al bucket público de las fotos
+  // (bajo {propiedad_id}/planos/) y guarda esa ruta en
+  // `publico_storage_path`. La vista `planos_publicos` solo expone esa
+  // copia — nunca `storage_path`, la ruta del original privado.
+  //
+  // No hace falta Edge Function: Nydia está autenticada y ya tiene permiso
+  // de lectura en el vault y de escritura en el bucket público, así que la
+  // copia ocurre del lado del cliente (descargar blob → volver a subir).
+  // Se decidió así con Okta el 27 jul, sobre las alternativas de guardar
+  // el plano directo en el bucket público (obligaría a subirlo dos veces)
+  // o firmar URLs desde el servidor (sería la primera Edge Function del
+  // proyecto).
+  const publicarPlano = async (doc) => {
+    if (!EXTENSIONES_PUBLICABLES.has(extensionDe(doc.nombre_original))) {
+      setError('Solo se pueden publicar planos en PDF, JPG o PNG.')
+      return
+    }
+
+    // 27 jul 2026, 2ª vuelta: se quitó el confirm() que había en la
+    // primera versión, a pedido de Okta ("usa un toggle, como cuando
+    // hacemos una propiedad pública"). El aviso de que el plano queda
+    // visible sin login ya no vive en un diálogo que se ve una sola vez:
+    // ahora es el subtítulo permanente del toggle, siempre a la vista
+    // junto al estado. La acción es reversible en un clic, así que la
+    // fricción del confirm no compraba nada.
+    setPublicandoId(doc.id)
+    setError(null)
+
+    // Se lee el original del vault con una URL firmada de vida corta (el
+    // bucket es privado: no hay URL pública que copiar).
+    const { data: firmada, error: urlError } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrl(doc.storage_path, 60)
+
+    if (urlError) {
+      console.error('Error leyendo el plano del vault:', urlError.message)
+      setError('No se pudo leer el plano para publicarlo.')
+      setPublicandoId(null)
+      return
+    }
+
+    let blob
+    try {
+      const resp = await fetch(firmada.signedUrl)
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      blob = await resp.blob()
+    } catch (e) {
+      console.error('Error descargando el plano:', e.message)
+      setError('No se pudo leer el plano para publicarlo.')
+      setPublicandoId(null)
+      return
+    }
+
+    const ext = extensionDe(doc.nombre_original)
+    const rutaPublica = `${propiedadId}/planos/${nombreUnico(ext)}`
+
+    const { error: storageError } = await supabase.storage
+      .from(BUCKET_PUBLICO)
+      .upload(rutaPublica, blob, { contentType: EXTENSION_MIME[ext] })
+
+    if (storageError) {
+      console.error('Error subiendo la copia pública:', storageError.message)
+      setError(`No se pudo publicar el plano: ${storageError.message}`)
+      setPublicandoId(null)
+      return
+    }
+
+    const { error: dbError } = await supabase
+      .from('documentos_propiedad')
+      .update({ publicado: true, publico_storage_path: rutaPublica })
+      .eq('id', doc.id)
+
+    if (dbError) {
+      console.error('Error marcando el plano como publicado:', dbError.message)
+      // Se limpia la copia recién subida: si la fila no quedó marcada, ese
+      // archivo público quedaría suelto sin forma de despublicarlo desde
+      // la UI.
+      await supabase.storage.from(BUCKET_PUBLICO).remove([rutaPublica])
+      setError('No se pudo publicar el plano.')
+      setPublicandoId(null)
+      return
+    }
+
+    setDocumentos((prev) =>
+      prev.map((d) => (d.id === doc.id ? { ...d, publicado: true, publico_storage_path: rutaPublica } : d))
+    )
+    setPublicandoId(null)
+  }
+
+  const despublicarPlano = async (doc) => {
+    setPublicandoId(doc.id)
+    setError(null)
+
+    if (doc.publico_storage_path) {
+      await supabase.storage.from(BUCKET_PUBLICO).remove([doc.publico_storage_path])
+    }
+
+    const { error: dbError } = await supabase
+      .from('documentos_propiedad')
+      .update({ publicado: false, publico_storage_path: null })
+      .eq('id', doc.id)
+
+    if (dbError) {
+      console.error('Error despublicando el plano:', dbError.message)
+      setError('No se pudo despublicar el plano.')
+      setPublicandoId(null)
+      return
+    }
+
+    setDocumentos((prev) =>
+      prev.map((d) => (d.id === doc.id ? { ...d, publicado: false, publico_storage_path: null } : d))
+    )
+    setPublicandoId(null)
+  }
+
   const eliminarDocumento = async (doc) => {
-    const ok = window.confirm(`¿Eliminar "${doc.nombre_original}"? Esta acción no se puede deshacer.`)
+    const ok = window.confirm(
+      doc.publicado
+        ? `¿Eliminar "${doc.nombre_original}"?\n\nEste plano está publicado en la página pública — también se va a quitar de ahí. Esta acción no se puede deshacer.`
+        : `¿Eliminar "${doc.nombre_original}"? Esta acción no se puede deshacer.`
+    )
     if (!ok) return
 
     await supabase.storage.from(BUCKET).remove([doc.storage_path])
+    // La copia pública se borra junto con el original: si no, el plano
+    // seguiría visible en la página pública sin existir ya en la Bóveda.
+    if (doc.publico_storage_path) {
+      await supabase.storage.from(BUCKET_PUBLICO).remove([doc.publico_storage_path])
+    }
     const { error: dbError } = await supabase.from('documentos_propiedad').delete().eq('id', doc.id)
 
     if (dbError) {
@@ -846,6 +995,12 @@ export default function FichaDocumentos({ propiedadId }) {
 
           {documentos.map((doc) => {
             const extension = extensionDe(doc.nombre_original)
+            // 27 jul 2026 — solo los planos se pueden publicar. El resto de
+            // los documentos de la Bóveda (INE, escrituras, avalúos) son
+            // sensibles por definición y no tienen por qué salir nunca de
+            // aquí; por eso el botón ni siquiera aparece en ellos.
+            const esPlano = doc.tipo_documento === 'planos' && EXTENSIONES_PUBLICABLES.has(extension)
+            const ocupado = publicandoId === doc.id
             return (
               <div
                 key={doc.id}
@@ -854,11 +1009,9 @@ export default function FichaDocumentos({ propiedadId }) {
                   border: '0.5px solid var(--ta-border)',
                   borderRadius: 12,
                   padding: '0.75rem 0.9rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
                 }}
               >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div
                   style={{
                     width: 44, height: 44, flexShrink: 0,
@@ -908,6 +1061,51 @@ export default function FichaDocumentos({ propiedadId }) {
                 >
                   <IconoQuitar />
                 </button>
+              </div>
+
+              {/* 27 jul 2026 (2ª vuelta, pedido de Okta) — toggle con el
+                  mismo formato que "Página pública" de la ficha básica
+                  (FichaBasico.jsx): título, subtítulo que describe el
+                  estado actual, y switch a la derecha. Solo en planos.
+                  El subtítulo es el que carga el aviso — antes vivía en
+                  un confirm() que se veía una sola vez y luego ya no
+                  había nada que recordara que el plano estaba expuesto. */}
+              {esPlano && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10, paddingTop: 10, borderTop: '0.5px solid var(--ta-border)' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: 'var(--ta-text)' }}>Página pública</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--ta-text-muted)' }}>
+                      {ocupado
+                        ? 'Guardando...'
+                        : doc.publicado
+                          ? 'Visible sin login para quien tenga la liga.'
+                          : 'Apagado — solo tú puedes verlo.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={!!doc.publicado}
+                    aria-label={`Mostrar ${doc.nombre_original} en la página pública`}
+                    disabled={ocupado}
+                    onClick={() => (doc.publicado ? despublicarPlano(doc) : publicarPlano(doc))}
+                    style={{
+                      width: 48, height: 28, borderRadius: 14, border: 'none', flexShrink: 0,
+                      background: doc.publicado ? 'var(--ta-accent)' : 'var(--ta-border)',
+                      position: 'relative', cursor: ocupado ? 'default' : 'pointer',
+                      opacity: ocupado ? 0.6 : 1,
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: 'absolute', top: 3, left: doc.publicado ? 23 : 3,
+                        width: 22, height: 22, borderRadius: '50%', background: 'var(--ta-surface)',
+                        transition: 'left 150ms ease-out',
+                      }}
+                    />
+                  </button>
+                </div>
+              )}
               </div>
             )
           })}

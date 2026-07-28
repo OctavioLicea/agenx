@@ -11,6 +11,7 @@
 import { useEffect } from 'react'
 import { useMap } from 'react-leaflet'
 import { IconoCerrarLightbox, IconoFlecha } from './iconos'
+import { useCerrarConBack } from './useCerrarConBack'
 import './componentesCompartidos.css'
 
 // --- fix de tamaño del mapa (Leaflet) -------------------------------------
@@ -43,6 +44,11 @@ export function InvalidarTamanoMapa() {
 // bundle. Reusable por los 3 temas: mismo patrón de overlay oscuro que
 // ya usa <Lightbox> arriba.
 export function ModalQR({ url, titulo, onCerrar }) {
+  // 27 jul 2026: el botón físico de atrás cierra el modal en vez de sacar
+  // al prospecto de la página. <ModalQR> solo se monta cuando está
+  // abierto, así que el hook recibe `true` fijo.
+  useCerrarConBack(true, onCerrar)
+
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&data=${encodeURIComponent(url)}`
   return (
     <div
@@ -68,6 +74,105 @@ export function ModalQR({ url, titulo, onCerrar }) {
         <img src={qrSrc} alt={`Código QR de ${titulo || 'la propiedad'}`} width={260} height={260} style={{ display: 'block', margin: '0 auto 14px', borderRadius: 6, width: '100%', height: 'auto', maxWidth: 260 }} />
         <p style={{ margin: 0, fontSize: 12, color: '#666', wordBreak: 'break-all' }}>{url}</p>
       </div>
+    </div>
+  )
+}
+
+// --- modal del plano arquitectónico -------------------------------------
+// 27 jul 2026, a pedido de Okta. Solo se usa cuando el plano publicado es
+// una IMAGEN: los PDF se abren en pestaña nueva desde el propio botón del
+// tema (un <iframe> de PDF no es confiable en celular — en iOS a menudo no
+// hace scroll o no renderiza). Un plano se lee acercándose, así que el
+// modal permite hacer zoom con el gesto normal del navegador: la imagen se
+// muestra a su ancho natural dentro de un contenedor con scroll en ambos
+// ejes, en vez de encogerse para caber en pantalla.
+// Cierra con Escape, con el botón, tocando el fondo, o con el botón físico
+// de atrás (useCerrarConBack) — mismo comportamiento que el lightbox.
+export function ModalPlano({ plano, onCerrar }) {
+  useCerrarConBack(true, onCerrar)
+
+  useEffect(() => {
+    function alPresionar(e) {
+      if (e.key === 'Escape') onCerrar()
+    }
+    window.addEventListener('keydown', alPresionar)
+    return () => window.removeEventListener('keydown', alPresionar)
+  }, [onCerrar])
+
+  if (!plano) return null
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Plano de la propiedad"
+      onClick={onCerrar}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,15,12,0.94)', display: 'flex', flexDirection: 'column' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 14px', flexShrink: 0 }}>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {plano.descripcion || 'Plano'}
+        </p>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onCerrar() }}
+          aria-label="Cerrar"
+          className="pp-lightbox-cerrar"
+          style={{ position: 'static', flexShrink: 0 }}
+        >
+          <IconoCerrarLightbox />
+        </button>
+      </div>
+
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ flex: 1, overflow: 'auto', padding: '0 14px 14px', WebkitOverflowScrolling: 'touch' }}
+      >
+        <img
+          src={plano.url}
+          alt={plano.descripcion || 'Plano de la propiedad'}
+          style={{ display: 'block', margin: '0 auto', maxWidth: 'none', minWidth: '100%', height: 'auto', borderRadius: 6, background: '#fff' }}
+        />
+      </div>
+    </div>
+  )
+}
+
+// --- pie con la liga al CRM ---------------------------------------------
+// 27 jul 2026, a pedido de Okta ("¿cómo ligamos la página pública con la
+// app?"). Liga discreta al pie que abre esta misma propiedad dentro de
+// TuAsesor para quien tenga credenciales — App.jsx consume el parámetro
+// `?propiedad=<id>` y abre la ficha directo.
+//
+// Deliberadamente sobrio: esta página la ven CLIENTES, y un botón grande
+// que los manda a un login sería confuso y le quitaría peso a los CTAs
+// reales (WhatsApp, ficha técnica). La pregunta "¿Eres asesor?" filtra
+// sola: el prospecto lee eso y sabe que no es para él. Va después de una
+// línea divisoria, con tipografía chica y color apagado.
+//
+// No expone nada nuevo: el id de la propiedad ya viaja en la URL pública.
+// Quién puede abrirla la decide RLS, no esta liga.
+export function PieTuAsesor({ propiedadId, colorTexto, colorLiga, colorBorde }) {
+  if (!propiedadId) return null
+  return (
+    <div
+      style={{
+        borderTop: `0.5px solid ${colorBorde}`,
+        margin: '8px auto 0',
+        padding: '18px 20px 28px',
+        maxWidth: 980,
+        textAlign: 'center',
+      }}
+    >
+      <p style={{ margin: 0, fontSize: 11.5, color: colorTexto, letterSpacing: '0.01em' }}>
+        ¿Eres asesor?{' '}
+        <a
+          href={`${window.location.origin}/?propiedad=${propiedadId}`}
+          style={{ color: colorLiga, textDecoration: 'none', fontWeight: 600, borderBottom: `1px solid ${colorLiga}`, paddingBottom: 1 }}
+        >
+          Abrir en TuAsesor
+        </a>
+      </p>
     </div>
   )
 }
@@ -98,6 +203,11 @@ export function Marca({ logoUrl, maxAncho = 55 }) {
 // --- lightbox (ver foto ampliada, con navegación prev/siguiente) --------
 
 export function Lightbox({ fotos, indice, logoUrl, onCerrar, onAnterior, onSiguiente }) {
+  // 27 jul 2026: a diferencia de <ModalQR>, este componente se monta
+  // siempre (aunque `indice` sea null) — por eso el hook recibe el estado
+  // real de apertura en vez de `true` fijo.
+  useCerrarConBack(indice !== null, onCerrar)
+
   useEffect(() => {
     if (indice === null) return
     function alPresionar(e) {

@@ -22,7 +22,7 @@ import { useState } from 'react'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
-import { Marca, Lightbox, ModalQR, InvalidarTamanoMapa } from '../../componentesCompartidos'
+import { Marca, Lightbox, ModalQR, ModalPlano, PieTuAsesor, InvalidarTamanoMapa } from '../../componentesCompartidos'
 import { crearIconoMapa } from '../../utilidadesUI'
 import { IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoCorreo, IconoFlecha, IconoFoto, IconoPin } from '../../iconos'
 import './nocturna.css'
@@ -100,6 +100,7 @@ export default function PresentacionNocturna({ datos }) {
     propiedad, fotos, perfil,
     marcaTexto, telefonoPrincipal, telefonoWa, precioTexto,
     tieneUbicacion, amenidadesActivas, terminosRenta, mensajeWa,
+    plano, zonaConectividad, serviciosZona, hayZonaConectividad,
     compartido, compartirLiga,
   } = datos
 
@@ -113,6 +114,8 @@ export default function PresentacionNocturna({ datos }) {
 
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [mostrarQR, setMostrarQR] = useState(false)
+  // 27 jul — solo para planos en imagen; los PDF abren en pestaña nueva.
+  const [mostrarPlano, setMostrarPlano] = useState(false)
   const iconoMapa = crearIconoMapa('var(--no-accent)')
 
   const mensajeTour = encodeURIComponent(`Hola, me gustaría agendar un tour para ver "${propiedad.titulo || 'la propiedad'}".`)
@@ -303,10 +306,60 @@ export default function PresentacionNocturna({ datos }) {
             )}
           </div>
         )}
+
+        {/* 27 jul 2026 — plano publicado desde la Bóveda. Solo existe si
+            Nydia publicó uno. */}
+        {plano && (
+          <div className="no-card">
+            <p className="no-card-titulo">Plano</p>
+            {tieneValor(plano.descripcion) && (
+              <p className="no-card-texto" style={{ marginBottom: 12 }}>{plano.descripcion}</p>
+            )}
+            {plano.esPdf ? (
+              <a className="no-cta-secundaria" href={plano.url} target="_blank" rel="noreferrer">
+                Ver plano (PDF)
+              </a>
+            ) : (
+              <button type="button" className="no-cta-secundaria" onClick={() => setMostrarPlano(true)} style={{ width: '100%', background: 'transparent', cursor: 'pointer' }}>
+                Ver plano
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* 27 jul 2026 — Zona y conectividad. Cada renglón solo si tiene
+            valor; `FilaDato` ya se salta los vacíos por su cuenta. */}
+        {hayZonaConectividad && (
+          <div className="no-card">
+            <p className="no-card-titulo">Zona y conectividad</p>
+            {tieneValor(zonaConectividad.zona_colonia_referencia) && (
+              <p className="no-card-texto">{zonaConectividad.zona_colonia_referencia}</p>
+            )}
+            {tieneValor(zonaConectividad.puntos_interes_cercanos) && (
+              <p className="no-card-texto" style={{ marginTop: 10 }}>{zonaConectividad.puntos_interes_cercanos}</p>
+            )}
+            <FilaDato label="Escuelas" valor={serviciosZona.escuelas} />
+            <FilaDato label="Hospitales" valor={serviciosZona.hospitales} />
+            <FilaDato label="Transporte" valor={serviciosZona.transporte} />
+          </div>
+        )}
       </div>
+
+      {/* Nocturno: fondo oscuro, así que el borde usa el token fuerte
+          para que se alcance a ver contra el fondo. */}
+      <PieTuAsesor
+        propiedadId={propiedad.id}
+        colorTexto="var(--no-muted)"
+        colorLiga="var(--no-accent)"
+        colorBorde="var(--no-border-strong)"
+      />
 
       {mostrarQR && (
         <ModalQR url={window.location.href} titulo={propiedad.titulo} onCerrar={() => setMostrarQR(false)} />
+      )}
+
+      {mostrarPlano && plano && (
+        <ModalPlano plano={plano} onCerrar={() => setMostrarPlano(false)} />
       )}
     </div>
   )

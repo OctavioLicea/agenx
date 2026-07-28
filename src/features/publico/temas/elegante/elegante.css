@@ -208,7 +208,14 @@
     grid-template-columns: 1fr;
     padding: 20px 16px 32px;
   }
+  /* 27 jul 2026 — reportado por Okta con captura: al apilarse en móvil,
+     el sidebar (precio + botones de contacto + bloque de Nydia) caía
+     hasta el final, después del mapa. `order: -1` lo sube justo debajo
+     del carrusel de fotos, que es donde el usuario espera el precio.
+     Solo aplica en móvil: en desktop el sidebar sigue a la derecha,
+     sticky, sin cambio. */
   .pe-sidebar {
     position: static;
+    order: -1;
   }
 }

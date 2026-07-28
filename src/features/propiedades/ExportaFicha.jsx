@@ -232,6 +232,16 @@ function FichaPDFDocument({ propiedad, fotos, perfil, opciones }) {
   const situacion = ficha.situacion_fiscal_legal || {}
   const terminosRenta = ficha.terminos_renta || {}
   const extras = equipamiento.extras || []
+  // 27 jul 2026 — zona y conectividad (ver sección más abajo).
+  const zonaConectividad = ficha.ubicacion_conectividad || {}
+  const serviciosZona = zonaConectividad.servicios || {}
+  const hayZonaConectividad = [
+    zonaConectividad.zona_colonia_referencia,
+    zonaConectividad.puntos_interes_cercanos,
+    serviciosZona.escuelas,
+    serviciosZona.hospitales,
+    serviciosZona.transporte,
+  ].some(tieneValor)
 
   const precioTexto = formatearPrecio(propiedad.precio, propiedad.moneda)
 
@@ -479,6 +489,26 @@ function FichaPDFDocument({ propiedad, fotos, perfil, opciones }) {
           </>
         )}
 
+        {/* 27 jul 2026 — "Zona y conectividad" (capturado en la pestaña
+            Fotos y ubicación del CRM). Se llevaba capturando desde hace
+            sesiones pero no salía ni en el PDF ni en la página pública:
+            Nydia escribía escuelas/hospitales/transporte y el cliente
+            nunca los veía. Va bajo el mismo check de "Ficha técnica" que
+            equipamiento — no es información sensible como Historial o
+            Situación fiscal, que sí tienen su propio check apagado por
+            default. Solo se pinta si hay algo capturado (o si Okta pidió
+            incluir campos vacíos). */}
+        {opciones.incluirFicha && (hayZonaConectividad || opciones.incluirVacios) && (
+          <>
+            <SeccionTitulo acento={acento}>Zona y conectividad</SeccionTitulo>
+            <FilaDato label="Zona / colonia de referencia" valor={zonaConectividad.zona_colonia_referencia} incluirVacios={opciones.incluirVacios} acento={acento} />
+            <FilaDato label="Puntos de interés cercanos" valor={zonaConectividad.puntos_interes_cercanos} incluirVacios={opciones.incluirVacios} acento={acento} />
+            <FilaDato label="Escuelas" valor={serviciosZona.escuelas} incluirVacios={opciones.incluirVacios} acento={acento} />
+            <FilaDato label="Hospitales" valor={serviciosZona.hospitales} incluirVacios={opciones.incluirVacios} acento={acento} />
+            <FilaDato label="Transporte" valor={serviciosZona.transporte} incluirVacios={opciones.incluirVacios} acento={acento} />
+          </>
+        )}
+
         {opciones.incluirHistorial && tieneValor(ficha.historial_propiedad) && (
           <>
             <SeccionTitulo acento={acento}>Historial de la propiedad</SeccionTitulo>
@@ -652,7 +682,7 @@ export default function ExportaFicha({ propiedad, onCerrar }) {
         </p>
 
         <CheckRow label="Fotos" descripcion="Hasta 12 fotos, todas del mismo tamaño." checked={incluirFotos} onChange={setIncluirFotos} />
-        <CheckRow label="Ficha técnica" descripcion="Equipamiento y amenidades." checked={incluirFicha} onChange={setIncluirFicha} />
+        <CheckRow label="Ficha técnica" descripcion="Equipamiento, amenidades, zona y conectividad." checked={incluirFicha} onChange={setIncluirFicha} />
         <CheckRow label="Historial de la propiedad" descripcion="Información sensible — revisa antes de compartir." checked={incluirHistorial} onChange={setIncluirHistorial} sangria />
         <CheckRow label="Situación fiscal y legal" descripcion="Información sensible — revisa antes de compartir." checked={incluirSituacion} onChange={setIncluirSituacion} sangria />
 

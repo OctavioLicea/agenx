@@ -58,7 +58,11 @@
   .pp-stats {
     grid-template-columns: repeat(2, 1fr);
   }
+  /* 27 jul 2026 — mismo fix que Elegante (ver elegante.css): en móvil el
+     sidebar de precio/contacto caía al final, después del mapa. Se sube
+     debajo de las fotos. Desktop sin cambio. */
   .pp-sidebar {
     position: static;
+    order: -1;
   }
 }

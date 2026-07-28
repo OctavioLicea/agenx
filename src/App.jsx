@@ -62,6 +62,25 @@ function App() {
   const avisoSalirRef = useRef(false)
   const [mostrarAvisoSalir, setMostrarAvisoSalir] = useState(false)
 
+  // 27 jul 2026, a pedido de Okta: la página pública de una propiedad
+  // ahora trae una liga discreta al pie ("¿Eres asesor? Abrir en
+  // TuAsesor") que apunta a `/?propiedad=<id>`. Aquí se consume ese
+  // parámetro para abrir la ficha directo, en vez de dejar al asesor en
+  // el buscador teniendo que encontrarla a mano.
+  //
+  // El id se lee UNA sola vez al montar y se guarda en un ref: si se
+  // leyera de `window.location` dentro del efecto, al limpiar la URL con
+  // replaceState el propio efecto perdería el valor a media corrida.
+  // Vive como ref y no como estado porque no se pinta nada con él.
+  //
+  // No hace falta guardar el destino en sessionStorage para sobrevivir al
+  // login: el parámetro sigue en la URL mientras el usuario escribe su
+  // contraseña, y el efecto solo dispara cuando el candado de acceso ya
+  // dijo 'ok', así que funciona igual con sesión previa que entrando
+  // desde cero.
+  const propiedadDeLigaRef = useRef(new URLSearchParams(window.location.search).get('propiedad'))
+  const [avisoLiga, setAvisoLiga] = useState(null)
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSesion(data.session)
@@ -195,6 +214,46 @@ function App() {
   const seleccionarPropiedad = (propiedad) => {
     irAVista('form', { propiedadSeleccionada: propiedad })
   }
+
+  // Consume el `?propiedad=<id>` de la liga de la página pública. Corre
+  // solo cuando el candado de acceso ya aprobó la sesión — antes de eso
+  // no tiene sentido intentar leer nada (RLS devolvería vacío).
+  //
+  // Caso importante ahora que hay varios usuarios: si la propiedad no es
+  // de esta cuenta, RLS no devuelve la fila. Eso NO es un error del
+  // sistema, es el comportamiento correcto — pero sin manejarlo el
+  // asesor vería el buscador sin ninguna explicación de por qué su liga
+  // "no hizo nada". Por eso se muestra un aviso explícito y se queda en
+  // el buscador.
+  useEffect(() => {
+    if (estadoAcceso !== 'ok') return
+    const id = propiedadDeLigaRef.current
+    if (!id) return
+
+    // Se consume de inmediato para que un re-render (o que el usuario
+    // recargue la página después) no vuelva a dispararlo.
+    propiedadDeLigaRef.current = null
+    window.history.replaceState(window.history.state, '', window.location.pathname)
+
+    let activo = true
+    supabase
+      .from('propiedades')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!activo) return
+        if (error || !data) {
+          setAvisoLiga('Esa propiedad no está en tu cuenta.')
+          setTimeout(() => setAvisoLiga(null), 4000)
+          return
+        }
+        seleccionarPropiedad(data)
+      })
+
+    return () => { activo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estadoAcceso])
 
   const nuevaPropiedad = () => {
     irAVista('form', { propiedadSeleccionada: null })
@@ -366,6 +425,33 @@ function App() {
           }}
         >
           Toca atrás de nuevo para salir
+        </div>
+      )}
+
+      {/* 27 jul 2026 — aviso cuando la liga de la página pública apunta a
+          una propiedad que no es de esta cuenta (multi-usuario + RLS).
+          Mismo toast que el de "toca atrás de nuevo". */}
+      {avisoLiga && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            background: 'rgba(31, 41, 35, 0.92)',
+            color: '#FFFFFF',
+            fontSize: 13,
+            padding: '10px 18px',
+            borderRadius: 20,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+            pointerEvents: 'none',
+            maxWidth: '86vw',
+            textAlign: 'center',
+          }}
+        >
+          {avisoLiga}
         </div>
       )}
     </div>

@@ -369,6 +369,15 @@
     padding: 20px 16px;
     gap: 20px;
   }
+  /* 27 jul 2026 — homologación con Elegante y Estándar (ver
+     elegante.css). Nocturno tenía el problema inverso: su hero es
+     [datos | galería], así que al apilarse en móvil el precio y los CTAs
+     quedaban ANTES de las fotos. Se invierte el orden para que el
+     usuario vea primero las fotos y enseguida el precio, igual que en
+     los otros dos temas. Desktop sin cambio. */
+  .no-hero > div:nth-child(2) {
+    order: -1;
+  }
   .no-cuerpo {
     padding: 0 16px 32px;
   }

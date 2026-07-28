@@ -61,6 +61,7 @@ export function usePropiedadPublica(id) {
   const [propiedad, setPropiedad] = useState(null)
   const [fotos, setFotos] = useState([])
   const [perfil, setPerfil] = useState(null)
+  const [plano, setPlano] = useState(null)
   const [compartido, setCompartido] = useState(false)
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export function usePropiedadPublica(id) {
       }
       setPropiedad(propData)
 
-      const [{ data: fotosData }, { data: perfilData }] = await Promise.all([
+      const [{ data: fotosData }, { data: perfilData }, { data: planoData }] = await Promise.all([
         supabase
           .from('fotos_propiedad_publicas')
           .select('storage_path, orden, es_portada')
@@ -91,6 +92,20 @@ export function usePropiedadPublica(id) {
           .select('nombre_comercial, nombre_corto, logo_url, color_acento, telefonos, estilo_pagina_publica, correo_publico')
           .eq('id', propData.user_id)
           .maybeSingle(),
+        // 27 jul 2026 — plano arquitectónico publicado. La vista
+        // `planos_publicos` ya filtra por propiedad publicada + documento
+        // marcado como publicado + tipo 'planos', y NUNCA expone
+        // `storage_path` (la ruta del original dentro del vault privado):
+        // solo `publico_storage_path`, que apunta a la copia en el bucket
+        // público. Si Nydia no publicó nada, esto viene vacío y ningún
+        // tema pinta la sección.
+        supabase
+          .from('planos_publicos')
+          .select('publico_storage_path, nombre_original, descripcion')
+          .eq('propiedad_id', id)
+          .order('nombre_original', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
       ])
 
       if (cancelado) return
@@ -101,6 +116,21 @@ export function usePropiedadPublica(id) {
         }))
       )
       setPerfil(perfilData)
+      setPlano(
+        planoData?.publico_storage_path
+          ? {
+              url: supabase.storage.from('bucket-propiedad-media').getPublicUrl(planoData.publico_storage_path).data.publicUrl,
+              nombre: planoData.nombre_original,
+              descripcion: planoData.descripcion,
+              // Un PDF no se puede mostrar en un modal de forma confiable
+              // en celular (iOS sobre todo: el iframe no hace scroll o no
+              // renderiza), así que cada tema abre los PDF en pestaña
+              // nueva y reserva el modal para las imágenes. Decisión de
+              // Okta, 27 jul.
+              esPdf: /\.pdf$/i.test(planoData.nombre_original || ''),
+            }
+          : null
+      )
       setEstado('ok')
     }
     cargar()
@@ -119,6 +149,21 @@ export function usePropiedadPublica(id) {
   // sentido cuando operacion === 'renta'; cada tema decide si los pinta.
   const terminosRenta = propiedad?.ficha?.terminos_renta || {}
   const tieneUbicacion = propiedad ? tieneValor(propiedad.lat) && tieneValor(propiedad.lng) : false
+
+  // 27 jul 2026 — "Zona y conectividad" (capturado en FichaMediaUbic.jsx).
+  // Ya viajaba dentro de `ficha` en la vista `propiedades_publicas`, solo
+  // que ningún tema lo pintaba. Se expone aquí ya normalizado, con
+  // `hayZonaConectividad` calculado sobre los 5 campos reales para que
+  // ningún tema pinte una tarjeta vacía.
+  const zonaConectividad = propiedad?.ficha?.ubicacion_conectividad || {}
+  const serviciosZona = zonaConectividad.servicios || {}
+  const hayZonaConectividad = [
+    zonaConectividad.zona_colonia_referencia,
+    zonaConectividad.puntos_interes_cercanos,
+    serviciosZona.escuelas,
+    serviciosZona.hospitales,
+    serviciosZona.transporte,
+  ].some(tieneValor)
 
   const amenidadesActivas = AMENIDADES_ITEMS
     .filter(([grupo, key]) => equipamiento[grupo]?.[key] === true)
@@ -161,6 +206,10 @@ export function usePropiedadPublica(id) {
     tieneUbicacion,
     amenidadesActivas,
     terminosRenta,
+    plano,
+    zonaConectividad,
+    serviciosZona,
+    hayZonaConectividad,
     mensajeWa,
     compartido,
     compartirLiga,

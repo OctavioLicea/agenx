@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { TIPOS_LABEL, OPERACION_LABEL, ZONA_LABEL, tieneValor } from '../../usePropiedadPublica'
-import { Marca, Lightbox, ModalQR, InvalidarTamanoMapa } from '../../componentesCompartidos'
+import { Marca, Lightbox, ModalQR, ModalPlano, PieTuAsesor, InvalidarTamanoMapa } from '../../componentesCompartidos'
 import { resetBoton, crearIconoMapa } from '../../utilidadesUI'
 import { IconoCama, IconoBano, IconoAuto, IconoRegla, IconoTerreno, IconoBrujula, IconoPin, IconoWhatsApp, IconoCompartir, IconoQR, IconoTelefono, IconoCorreo, IconoFoto } from '../../iconos'
 import logoTuAsesor from '../../../../assets/branding/logo-isotipo-dorado.svg'
@@ -143,6 +143,7 @@ export default function PresentacionElegante({ datos }) {
     propiedad, fotos, perfil,
     marcaTexto, telefonoPrincipal, telefonoWa, precioTexto,
     tieneUbicacion, amenidadesActivas, terminosRenta, mensajeWa,
+    plano, zonaConectividad, serviciosZona, hayZonaConectividad,
     compartido, compartirLiga,
   } = datos
 
@@ -156,6 +157,9 @@ export default function PresentacionElegante({ datos }) {
 
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [mostrarQR, setMostrarQR] = useState(false)
+  // 27 jul — solo se usa cuando el plano publicado es imagen; los PDF
+  // abren en pestaña nueva desde el mismo botón.
+  const [mostrarPlano, setMostrarPlano] = useState(false)
   const fechaHora = useRelojEnVivo()
   const iconoMapa = useMemo(() => crearIconoMapa('#B8963A'), [])
 
@@ -273,6 +277,59 @@ export default function PresentacionElegante({ datos }) {
             </div>
           )}
 
+          {/* 27 jul 2026 — plano arquitectónico publicado desde la Bóveda.
+              La sección solo existe si Nydia publicó uno (regla general de
+              la página pública: nada nulo se pinta). */}
+          {plano && (
+            <div className="pe-card">
+              <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', color: 'var(--pe-text)' }}>Plano</p>
+              {tieneValor(plano.descripcion) && (
+                <p style={{ margin: '0 0 12px', fontSize: 13.5, lineHeight: 1.8, color: 'var(--pe-muted)' }}>{plano.descripcion}</p>
+              )}
+              {plano.esPdf ? (
+                <a
+                  href={plano.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 42, borderRadius: 6, border: '1px solid var(--pe-dark)', color: 'var(--pe-dark)', fontSize: 12.5, fontWeight: 600, textDecoration: 'none', letterSpacing: '0.02em' }}
+                >
+                  Ver plano (PDF)
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setMostrarPlano(true)}
+                  style={{ width: '100%', height: 42, borderRadius: 6, border: '1px solid var(--pe-dark)', background: 'transparent', color: 'var(--pe-dark)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.02em', cursor: 'pointer' }}
+                >
+                  Ver plano
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 27 jul 2026 — "Zona y conectividad" (capturado en la pestaña
+              Fotos y ubicación del CRM). Cada renglón se pinta solo si
+              tiene valor. */}
+          {hayZonaConectividad && (
+            <div className="pe-card">
+              <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', color: 'var(--pe-text)' }}>Zona y conectividad</p>
+              {tieneValor(zonaConectividad.zona_colonia_referencia) && (
+                <p style={{ margin: '0 0 10px', fontSize: 13.5, lineHeight: 1.8, color: 'var(--pe-muted)', whiteSpace: 'pre-line' }}>{zonaConectividad.zona_colonia_referencia}</p>
+              )}
+              {tieneValor(zonaConectividad.puntos_interes_cercanos) && (
+                <p style={{ margin: '0 0 10px', fontSize: 13.5, lineHeight: 1.8, color: 'var(--pe-muted)', whiteSpace: 'pre-line' }}>{zonaConectividad.puntos_interes_cercanos}</p>
+              )}
+              {[['Escuelas', serviciosZona.escuelas], ['Hospitales', serviciosZona.hospitales], ['Transporte', serviciosZona.transporte]]
+                .filter(([, valor]) => tieneValor(valor))
+                .map(([label, valor]) => (
+                  <div key={label} style={{ marginTop: 10 }}>
+                    <p style={{ margin: '0 0 3px', fontSize: 12, fontWeight: 600, color: 'var(--pe-text)' }}>{label}</p>
+                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.8, color: 'var(--pe-muted)', whiteSpace: 'pre-line' }}>{valor}</p>
+                  </div>
+                ))}
+            </div>
+          )}
+
           {tieneUbicacion && (
             <div className="pe-card" style={{ padding: 0, overflow: 'hidden' }}>
               <p style={{ margin: 0, padding: '18px 22px 12px', fontSize: 13, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase', color: 'var(--pe-text)' }}>Ubicación</p>
@@ -387,8 +444,20 @@ export default function PresentacionElegante({ datos }) {
         </div>
       </div>
 
+      {/* Elegance: tipografía serif, acento dorado. */}
+      <PieTuAsesor
+        propiedadId={propiedad.id}
+        colorTexto="var(--pe-muted)"
+        colorLiga="var(--pe-accent)"
+        colorBorde="var(--pe-border)"
+      />
+
       {mostrarQR && (
         <ModalQR url={window.location.href} titulo={propiedad.titulo} onCerrar={() => setMostrarQR(false)} />
+      )}
+
+      {mostrarPlano && plano && (
+        <ModalPlano plano={plano} onCerrar={() => setMostrarPlano(false)} />
       )}
     </div>
   )
