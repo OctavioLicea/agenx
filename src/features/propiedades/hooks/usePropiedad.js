@@ -91,6 +91,12 @@ export const PROPIEDAD_VACIA = {
   // Sesión 20 (17 jul 2026): página pública de presentación — apagado por
   // default, Nydia decide explícitamente cuáles propiedades publicar.
   publicado: false,
+  // Sesión 24 (27 jul 2026): distintivos de la página pública — mostrar el
+  // estado (Separada/Vendida/Rentada, derivado del estado del CRM) y el
+  // indicador de "bajó de precio" con precio anterior opcional (tachado).
+  mostrar_estado_publico: false,
+  bajo_de_precio: false,
+  precio_anterior: null,
 }
 
 // Whitelist de columnas REALES de tuasesor.propiedades. Cualquier otra
@@ -102,6 +108,7 @@ const COLUMNAS_PROPIEDADES = [
   'recamaras', 'banos', 'estacionamientos', 'm2_construccion', 'm2_terreno',
   'cuota_mantenimiento', 'estado', 'direccion', 'ficha_completa', 'ficha',
   'redes_sociales', 'lat', 'lng', 'ubicacion_origen', 'publicado',
+  'mostrar_estado_publico', 'bajo_de_precio', 'precio_anterior',
 ]
 
 function construirPayload(propiedad) {

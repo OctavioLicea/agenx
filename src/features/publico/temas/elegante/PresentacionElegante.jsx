@@ -47,7 +47,7 @@ function IconoFlechaCarrusel({ direccion }) {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
 }
 
-function CarruselGaleria({ fotos, logoUrl, onAbrir }) {
+function CarruselGaleria({ fotos, logoUrl, onAbrir, distintivo }) {
   const [indice, setIndice] = useState(0)
   if (fotos.length === 0) return null
   const miniaturas = fotos.slice(1, 5)
@@ -65,6 +65,20 @@ function CarruselGaleria({ fotos, logoUrl, onAbrir }) {
           <img src={fotos[indice].url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           <Marca logoUrl={logoUrl} />
         </button>
+        {/* 27 jul (sesión 24): listón de estado — blanco con filo dorado,
+            serif espaciado, el lenguaje de Elegance. */}
+        {distintivo && (
+          <span
+            style={{
+              position: 'absolute', top: 16, left: 0, background: 'rgba(255,255,255,0.95)',
+              color: 'var(--pe-accent)', fontSize: 11.5, letterSpacing: 2.5,
+              textTransform: 'uppercase', padding: '6px 16px',
+              borderLeft: '3px solid var(--pe-accent)', pointerEvents: 'none',
+            }}
+          >
+            {distintivo}
+          </span>
+        )}
 
         {fotos.length > 1 && (
           <>
@@ -144,6 +158,7 @@ export default function PresentacionElegante({ datos }) {
     marcaTexto, telefonoPrincipal, telefonoWa, precioTexto,
     tieneUbicacion, amenidadesActivas, terminosRenta, mensajeWa,
     plano, zonaConectividad, serviciosZona, hayZonaConectividad,
+    etiquetaEstado, bajoDePrecio, precioAnteriorTexto,
     compartido, compartirLiga,
   } = datos
 
@@ -183,7 +198,7 @@ export default function PresentacionElegante({ datos }) {
         </div>
       </header>
 
-      <CarruselGaleria fotos={fotos} logoUrl={perfil?.logo_url} onAbrir={setLightboxIndex} />
+      <CarruselGaleria fotos={fotos} logoUrl={perfil?.logo_url} onAbrir={setLightboxIndex} distintivo={etiquetaEstado} />
       <Lightbox
         fotos={fotos}
         indice={lightboxIndex}
@@ -360,6 +375,26 @@ export default function PresentacionElegante({ datos }) {
 
         <div className="pe-sidebar">
           <div className="pe-card">
+            {/* 27 jul (sesión 24): distintivos — nunca llegan ambos a la
+                vez (garantizado en usePropiedadPublica). El chip va en su
+                PROPIO renglón arriba del precio: inline dentro del <p> se
+                desacomodaba cuando el precio envolvía línea (reportado por
+                Okta con captura en desktop). */}
+            {etiquetaEstado && (
+              <span style={{ display: 'inline-block', fontSize: 11, color: 'var(--pe-accent)', border: '0.5px solid var(--pe-accent)', padding: '4px 10px', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>
+                {etiquetaEstado}
+              </span>
+            )}
+            {bajoDePrecio && (
+              <span style={{ display: 'inline-block', fontSize: 11, color: 'var(--pe-accent)', border: '0.5px solid var(--pe-accent)', padding: '4px 10px', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>
+                ↓ Bajó de precio
+              </span>
+            )}
+            {precioAnteriorTexto && (
+              <p className="pe-precio" style={{ margin: '0 0 2px', fontSize: 15, color: 'var(--pe-muted, #A39C8C)', textDecoration: 'line-through', fontWeight: 400 }}>
+                {precioAnteriorTexto}{propiedad.operacion === 'renta' ? ' /mes' : ''}
+              </p>
+            )}
             {precioTexto && (
               <p className="pe-precio" style={{ margin: '0 0 18px', fontSize: 28, fontWeight: 700, color: 'var(--pe-text)' }}>
                 {precioTexto}{propiedad.operacion === 'renta' ? ' /mes' : ''}

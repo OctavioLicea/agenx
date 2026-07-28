@@ -8,7 +8,43 @@
 > sueltos anteriores (Sesiones 2 a 9) — esos quedan como archivo
 > histórico, no se vuelven a tocar.
 >
-> Última actualización: 27 de julio 2026 (sesión 23, cierre — **todo lo
+> Última actualización: 27 de julio 2026 (sesión 24, cierre — **probado
+> en localhost por Okta**: distintivos y Configuración OK tras 3 fixes
+> sobre la marcha (CHECK constraint de `estado`, chip desacomodado en
+> desktop, y datos viejos al volver con el atrás del navegador — ver
+> secciones y bitácora). Instrucciones de comit y deploy entregadas a
+> Okta al cierre. Pendiente para después del deploy: probar en
+> producción/celular, el flujo /registro completo y confirmar signups
+> habilitados en el dashboard. Las 4 migraciones del día ya están
+> aplicadas en Supabase.)
+>
+> Actualización anterior: 27 de julio 2026 (sesión 24, noche — 2ª ronda
+> de construcción: **distintivos de estado (Separada/Vendida/Rentada) y
+> "bajó de precio" en la página pública** (migración + ficha básica + 3
+> temas, ver sección "🏷️ Distintivos" abajo) y **UI de Configuración
+> estandarizada** (tarjetas blancas con acento lateral, encabezados
+> uniformes con ícono — feedback de Okta con captura tras probar en
+> localhost). Build y lint sin errores nuevos.)
+>
+> Actualización anterior: 27 de julio 2026 (sesión 24, construcción —
+> **arrancó Colaboración (co-asesores), ronda 1 construida**: 2
+> migraciones aplicadas en Supabase, módulo nuevo Configuración
+> (engrane) con "Mi equipo", pantalla /registro en autoservicio, campo
+> de iniciales y rastro de edición en propiedades. Build y lint sin
+> errores nuevos contra baseline. **Sin comitear ni desplegar todavía;
+> falta probar en localhost.** Ver sección "🤝 Colaboración" abajo. La
+> ronda 2 (experiencia del co-asesor) queda para la próxima sesión.)
+>
+> Actualización anterior: 27 de julio 2026 (sesión 24, apertura — Okta
+> confirmó las pruebas en producción/celular real de todo lo de la
+> sesión 23 (plano en los 3 temas, liga "Abrir en TuAsesor", back de
+> modales, orden en móvil); el atajo de subida de plano en Ficha técnica
+> quedó DESCARTADO (no es necesario); los "cambios de Nydia sobre campos
+> de renta" eran los que ya se construyeron — no hay pendiente nuevo
+> ahí; y la palabra de acción `Date` quedó confirmada como protocolo
+> permanente.)
+>
+> Actualización anterior: 27 de julio 2026 (sesión 23, cierre — **todo lo
 > de la sesión está comiteado (`0ed3e19`) y DESPLEGADO a producción**,
 > verificado contra el remoto. Lo único que queda de esta sesión es
 > probar en producción/celular real, ver los `[ ]` sueltos en las
@@ -181,6 +217,146 @@
 ## 🐛 UX — scroll faltante en resultados de búsqueda (Sesión 16, corregido)
 
 - [x] **Reportado por Okta con captura**: al buscar contacto por rol/empresa en `FichaColaboradores.jsx` (ver fix de arriba), una búsqueda con muchas coincidencias no tenía scroll propio — la lista de resultados crecía sin límite. Mismo patrón (contenedor con `overflow: 'hidden'` pero sin `maxHeight`/`overflowY`) se encontró también en los buscadores de contacto y de propiedad de `InteraccionForm.jsx`, `CitaForm.jsx` y `EnviarDocumentosBoveda.jsx` — corregidos los 5 puntos con `maxHeight: 260, overflowY: 'auto'`, mismo valor ya usado en el preview de importación de `ImportarContactos.jsx`.
+
+---
+
+## 🤝 Colaboración (co-asesores) — ronda 1 CONSTRUIDA (sesión 24, 27 jul), ronda 2 pendiente
+
+El cambio grande pedido por Okta ("ya lo veías venir"). Alcance acordado
+por rondas de preguntas antes del `Date`: se comparten **propiedades
+puntuales** (no todo el CRM), con equipo definido **por correos** (máx 5
+co-asesores, pueden no tener cuenta todavía), permiso **ver/editar por
+miembro**, y **la Bóveda sí entra** (con editar puede también subir, no
+borrar lo del dueño). Contactos/interacciones/citas compartidos: fuera
+de alcance por ahora (el colaborador sí podrá ligar SUS propias citas a
+una compartida — sale gratis del RLS en la ronda 2).
+
+**Ronda 1 — construida (sin comitear/desplegar, sin probar en localhost):**
+
+- [x] **Migración `colaboracion_equipos`** (aplicada y probada con
+  rollback): `perfiles.iniciales` (máx 3); `propiedades.actualizado_por/
+  actualizado_en` llenados por trigger (rastro anti-falseo, pedido de
+  Okta para la co-asesoría); helper `correo_actual()` (email del JWT);
+  `equipo_miembros` (dueño administra, miembro solo VE sus filas);
+  `propiedad_compartida` (permiso por miembro, solo la administra el
+  dueño de la propiedad); trigger `trg_perfiles_requiere_equipo` — un
+  perfil NUEVO solo se crea si su correo está en algún equipo (así
+  /registro no deja entrar extraños; el candado de App.jsx no cambió),
+  con early-return para no romper los upserts de autosave (probado
+  explícitamente) y reclamando `miembro_uid` (semáforo "con cuenta").
+- [x] **Migración `reclamar_membresias_equipo`**: RPC para cuentas que
+  YA existían al ser agregadas a un equipo; App.jsx la llama
+  (fire-and-forget) al pasar el candado.
+- [x] **Módulo Configuración (engrane)** — decidido con Okta ("el perfil
+  cada vez se convierte más en un módulo de configuración"):
+  `ConfiguracionForm.jsx` nuevo con Requisitos de renta, Página pública
+  (tema) y Seguridad (PIN) MOVIDAS tal cual de Mi Perfil, más **Mi
+  equipo** (alta/baja de correos, semáforo con/sin cuenta, botón
+  "Invitar a TuAsesor" vía mailto con liga a /registro). Mi Perfil queda
+  solo con identidad/marca + campo **Iniciales** nuevo (sugerencia
+  automática desde el nombre).
+- [x] **Pantalla `/registro`** (`Registro.jsx` + ruta en `main.jsx`):
+  autoservicio elegido por Okta (opción C de 3, sobre Edge Function y
+  sobre el script manual) — signUp del SDK sin service role;
+  `emailRedirectTo` al origin para no caer en el Site URL de ivent;
+  manejo manual de tokens (detectSessionInUrl apagado global); aviso
+  "sin equipo" antes de pedir datos; maneja confirmación apagada y
+  correo ya registrado.
+- [x] Verificado: build limpio + lint diffeado contra baseline a nivel
+  de mensajes (cero errores de tipo nuevo; se corrigió de pilón el
+  `labelStyle` sin uso pre-existente); RLS simulado por SQL (miembro ve
+  su fila, ajeno ve 0).
+
+**Pendientes de la ronda 1:**
+
+- [x] **Probado en localhost** (Okta, mismo día): Configuración quedó
+  bien tras el pulido visual (ver abajo).
+- [ ] **Probar el flujo /registro completo** con la cuenta de prueba de
+  hotmail (borrarla antes con `--force` del script, o usar otro correo)
+  — no se alcanzó a probar de punta a punta esta sesión.
+- [ ] **Confirmar en el dashboard**: Authentication → Sign In/Up → que
+  los signups estén habilitados (no se puede verificar por SQL; si están
+  apagados, /registro no crea cuentas).
+- [ ] Comitear y desplegar — **instrucciones entregadas a Okta al cierre
+  de la sesión 24**.
+- [ ] **Nota operativa**: el script `invitar-usuario.mjs` ahora también
+  exige que el correo esté en un equipo (el trigger aplica a todo perfil
+  nuevo). Para un alta independiente futura (otro asesor tipo Nydia):
+  agregar su correo al equipo de alguien primero, o insertar el perfil
+  vía SQL.
+
+**Pulido de la misma sesión (24, noche)**: Okta probó en localhost y
+mandó captura — las secciones de Configuración iban sobre caliza y con
+títulos desalineados. Estandarizado: tarjetas blancas con borde 0.5px +
+acento lateral de 3px (mismo lenguaje que GrupoCampos del wizard) y las
+4 secciones con encabezado uniforme (ícono + título a la izquierda,
+subtítulo muted, `textAlign` explícito). Íconos nuevos: documento para
+Requisitos de renta, globo para Página pública.
+
+**Ronda 2 — la experiencia del co-asesor (próxima sesión):**
+
+- [ ] Policies de acceso: `propiedades` (SELECT compartida, UPDATE si
+  `editar`), `fotos_propiedad`, `documentos_propiedad` (+ INSERT si
+  `editar`) y storage de los 2 buckets con la misma regla.
+- [ ] Trigger de protección: un editor no puede cambiar `publicado` ni
+  `user_id` (publicar/despublicar y borrar quedan del dueño, a nivel BD).
+- [ ] UI de "Compartir con mi equipo" en la ficha (permiso por miembro).
+- [ ] Lado colaborador: badge "Compartida por X" en el listado (reusar
+  `perfiles_publicos` o vista chica nueva con iniciales), PropiedadForm
+  en solo-lectura con permiso `ver`, pestaña Colaboradores oculta en
+  compartidas, Bóveda con su propio PIN (+ subir si `editar`).
+- [ ] Rastro visible: "Capturada por XXX · Última edición YYY, fecha" en
+  ficha y tarjeta del listado (los datos ya se guardan desde la ronda 1).
+
+---
+
+## 🏷️ Distintivos de estado y "bajó de precio" en la página pública (sesión 24, 27 jul) — CONSTRUIDO, sin probar en real
+
+Pedido de Okta (con capturas de referencia; se le devolvió mockup de UI
+antes de construir, aprobado). Decisiones tomadas por ronda de preguntas:
+**modelo derivado** (una sola fuente de verdad — al embudo solo se agregó
+el estado `separada`; Cerrada + venta → "Vendida", Cerrada + renta →
+"Rentada"), **precio anterior tachado opcional**, y **CTAs se quedan
+activos** aunque esté Separada/Vendida/Rentada (un prospecto que pregunta
+por una vendida sigue siendo lead).
+
+- [x] **Migración `distintivos_pagina_publica`**: columnas
+  `mostrar_estado_publico`, `bajo_de_precio`, `precio_anterior` en
+  `propiedades`; la vista `propiedades_publicas` expone `estado_publico`
+  **solo si el toggle está prendido** (gating del lado del servidor — el
+  anónimo ni recibe el dato) y el indicador de precio solo cuando el
+  estado no lo vuelve irrelevante. Verificada como `anon`.
+- [x] **Ficha básica**: chip "Separada" en el embudo (entre En proceso y
+  Cerrada); en la sección de página pública, renglón nuevo mutuamente
+  excluyente: con Separada/Cerrada → toggle "Mostrar [etiqueta] en la
+  página pública"; en cualquier otro estado → toggle "Bajó de precio" +
+  campo opcional de precio anterior. Payload actualizado en
+  `usePropiedad.js`.
+- [x] **Los 3 temas**: listón sobre la esquina de la foto principal
+  (Estándar: sólido con el acento; Elegance: blanco con filo dorado,
+  espaciado; Nocturno: negro con filo dorado) + chip junto al precio +
+  bloque "↓ Bajó de precio" con el anterior tachado. Derivación en
+  `usePropiedadPublica.js` (`etiquetaEstado`, `bajoDePrecio`,
+  `precioAnteriorTexto`).
+- [x] **Listado interno**: mapeo de color/etiqueta para `separada` (azul)
+  — sin esto salía cruda y gris por el fallback.
+- [x] **Fix sobre la marcha (reportado por Okta al probar)**: el CHECK
+  `propiedades_estado_check` de la BD no incluía `separada` — migración
+  `estado_separada_en_check` aplicada y verificada. Lección anotada: un
+  valor nuevo en campo tipo enum obliga a revisar los CHECK constraints,
+  no solo UI y payload.
+- [x] **Probado en localhost por Okta** — en la pasada salieron y se
+  corrigieron 2 fixes más (además del CHECK de arriba): (a) el chip de
+  estado junto al precio se desacomodaba en desktop cuando el precio
+  envolvía línea → movido a su propio renglón arriba del precio en los
+  3 temas; (b) **datos viejos al volver con el atrás del navegador**
+  (puso Separada, salió, regresó y decía Disponible aunque BD estaba
+  bien) → corregido en 2 capas: popstate a buscador/contactos ahora
+  refresca su listado, y `PropiedadForm` trae su copia autoritativa de
+  BD al montar (el historial del navegador guarda un snapshot congelado
+  de la propiedad), aplicándola solo si no hay ediciones sin guardar.
+- [ ] Probar en producción/celular real tras el deploy.
+- Fuera de alcance (explícito): PDF y distintivos en el listado interno.
 
 ---
 
@@ -563,9 +739,9 @@
 - [x] **Probado con Nydia (27 jul) — funciona bien.** Cargó una
   propiedad real en renta; la precarga de la plantilla, el PDF y la
   página pública quedaron correctos.
-- [ ] **Nydia pidió unos cambios sobre esto (27 jul) — falta detallarlos
-  y construirlos.** Pendiente de que Okta describa cuáles son; se
-  documentan aquí en cuanto se definan.
+- [x] **Cerrado (sesión 24): los "cambios de Nydia" eran los que ya se
+  construyeron.** Okta confirmó que no hay pedido nuevo pendiente sobre
+  los campos de renta.
 - [x] **DESCARTADO por Okta (27 jul) — no se hará.** Se deja registrado
   para que no vuelva a aparecer como pendiente en la próxima sesión. El
   pedido original era: botón de "prerrequisitos" + captura de lead vía
@@ -674,15 +850,12 @@ detrás de un botón, con modal que cierre bien.
   plano es imagen abre un modal con scroll/zoom; si es PDF abre en
   pestaña nueva (decisión de Okta — un `<iframe>` de PDF no es confiable
   en celular, sobre todo iOS).
-- [ ] **Pendiente de probar en real**: publicar un plano de verdad desde
-  la Bóveda y confirmar que se ve bien en los 3 temas, en celular y en
-  desktop, tanto en imagen como en PDF.
-- [ ] **Pendiente de decidir**: hoy la subida del plano vive solo en la
-  Bóveda (5ª pestaña). El pedido original de Okta decía "en la ficha
-  técnica pon una sección para subir un plano" — al elegir la opción B
-  eso quedó cubierto por la Bóveda, pero **no** se agregó nada en la
-  pestaña de Ficha técnica. Si Nydia lo busca ahí y no lo encuentra,
-  falta decidir si se pone un atajo.
+- [x] **Probado en producción (sesión 24, confirmado por Okta)**: plano
+  publicado desde la Bóveda y visto correctamente en los 3 temas.
+- [x] **DESCARTADO (sesión 24): atajo de subida de plano en Ficha
+  técnica.** Okta decidió que no es necesario — la subida se queda
+  viviendo solo en la Bóveda (5ª pestaña). Se deja registrado para que
+  no vuelva a aparecer como pendiente.
 
 ---
 
@@ -697,8 +870,8 @@ detrás de un botón, con modal que cierre bien.
   retroceder; si el modal se cierra por Escape/botón, retira su propia
   entrada para no dejar "atrás" fantasma. Mismo patrón que `App.jsx`,
   sin dependencias nuevas. Aplicado a los 3 modales (plano, lightbox, QR).
-- [ ] **Pendiente de probar en celular real** — el comportamiento del
-  botón físico no se puede verificar desde Cowork.
+- [x] **Probado en celular real (sesión 24, confirmado por Okta)** — el
+  back de los 3 modales funciona.
 
 ---
 
@@ -726,8 +899,8 @@ podemos poner una liga a TuAsesor, para quienes tienen credenciales."
   el buscador.
 - [x] **Sin exposición nueva**: el id de la propiedad ya viajaba en la
   URL pública. Quién puede abrirla lo sigue decidiendo RLS.
-- [ ] **Pendiente de probar en real**: entrar por la liga con sesión y
-  sin sesión, y con una cuenta que no sea dueña de esa propiedad.
+- [x] **Probado en real (sesión 24, confirmado por Okta)**: la liga
+  funciona.
 
 ---
 
@@ -755,7 +928,8 @@ podemos poner una liga a TuAsesor, para quienes tienen credenciales."
   **inverso** — su hero es `[datos | galería]`, así que en móvil el
   precio quedaba ANTES de las fotos; se invirtió el orden para
   homologarlo con los otros dos (fotos → precio).
-- [ ] **Pendiente de probar en celular real** en los 3 temas.
+- [x] **Probado en celular real (sesión 24, confirmado por Okta)** en
+  los 3 temas.
 
 ---
 

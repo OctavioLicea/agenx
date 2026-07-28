@@ -38,8 +38,21 @@ const ESTADOS = [
   { value: 'captacion', label: 'Captación' },
   { value: 'disponible', label: 'Disponible' },
   { value: 'en_proceso', label: 'En proceso' },
+  // Sesión 24 (27 jul): "Separada" — único valor nuevo del embudo. El
+  // distintivo público se DERIVA del estado (una sola fuente de verdad):
+  // separada → "Separada"; cerrada + renta → "Rentada"; cerrada + venta →
+  // "Vendida". No se agregaron "Rentada"/"Vendida" como estados propios.
+  { value: 'separada', label: 'Separada' },
   { value: 'cerrada', label: 'Cerrada' },
 ]
+
+// Etiqueta que vería el público según estado + operación (null si el
+// estado no amerita distintivo).
+function etiquetaEstadoPublico(estado, operacion) {
+  if (estado === 'separada') return 'Separada'
+  if (estado === 'cerrada') return operacion === 'renta' ? 'Rentada' : 'Vendida'
+  return null
+}
 
 const REDES = ['Facebook', 'Instagram', 'TikTok', 'Otro']
 
@@ -454,6 +467,85 @@ export default function FichaBasico({ value, onChange }) {
             />
           </button>
         </div>
+
+        {/* Sesión 24 (27 jul): distintivos de la página pública. Con estado
+            Separada/Cerrada se ofrece mostrar el estado (listón sobre la
+            foto + chip junto al precio); en cualquier otro estado se ofrece
+            el indicador de "bajó de precio", con precio anterior opcional
+            que sale tachado. Mutuamente excluyentes a propósito — la vista
+            pública también lo garantiza del lado del servidor. */}
+        {etiquetaEstadoPublico(value.estado, value.operacion) ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '0.5px solid var(--ta-border)', paddingTop: 12, marginTop: 12, marginBottom: 4 }}>
+            <div>
+              <p style={{ fontSize: 14, color: 'var(--ta-text)', margin: 0 }}>
+                Mostrar &quot;{etiquetaEstadoPublico(value.estado, value.operacion)}&quot; en la página pública
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--ta-text-muted)', margin: '2px 0 0' }}>
+                {value.mostrar_estado_publico
+                  ? 'Con listón sobre la foto y junto al precio.'
+                  : 'Apagado — la página se ve como siempre.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!!value.mostrar_estado_publico}
+              onClick={() => set('mostrar_estado_publico')(!value.mostrar_estado_publico)}
+              style={{
+                width: 48, height: 28, borderRadius: 14, border: 'none', flexShrink: 0,
+                background: value.mostrar_estado_publico ? 'var(--ta-accent)' : 'var(--ta-border)',
+                position: 'relative', cursor: 'pointer',
+              }}
+            >
+              <span
+                style={{
+                  position: 'absolute', top: 3, left: value.mostrar_estado_publico ? 23 : 3,
+                  width: 22, height: 22, borderRadius: '50%', background: 'var(--ta-surface)',
+                  transition: 'left 150ms ease-out',
+                }}
+              />
+            </button>
+          </div>
+        ) : (
+          <div style={{ borderTop: '0.5px solid var(--ta-border)', paddingTop: 12, marginTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div>
+                <p style={{ fontSize: 14, color: 'var(--ta-text)', margin: 0 }}>Bajó de precio</p>
+                <p style={{ fontSize: 12, color: 'var(--ta-text-muted)', margin: '2px 0 0' }}>
+                  {value.bajo_de_precio
+                    ? 'Se indica junto al precio en la página pública.'
+                    : 'Apagado — sin indicador.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={!!value.bajo_de_precio}
+                onClick={() => set('bajo_de_precio')(!value.bajo_de_precio)}
+                style={{
+                  width: 48, height: 28, borderRadius: 14, border: 'none', flexShrink: 0,
+                  background: value.bajo_de_precio ? 'var(--ta-accent)' : 'var(--ta-border)',
+                  position: 'relative', cursor: 'pointer',
+                }}
+              >
+                <span
+                  style={{
+                    position: 'absolute', top: 3, left: value.bajo_de_precio ? 23 : 3,
+                    width: 22, height: 22, borderRadius: '50%', background: 'var(--ta-surface)',
+                    transition: 'left 150ms ease-out',
+                  }}
+                />
+              </button>
+            </div>
+            {value.bajo_de_precio && (
+              <NumberField
+                label="Precio anterior (opcional — se muestra tachado)"
+                value={value.precio_anterior}
+                onChange={set('precio_anterior')}
+              />
+            )}
+          </div>
+        )}
       </GrupoCampos>
 
       <GrupoCampos>

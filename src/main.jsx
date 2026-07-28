@@ -23,8 +23,17 @@ const PropiedadPublica = lazy(() => import('./features/publico/PropiedadPublica.
 // EstablecerPassword en vez del CRM normal.
 const EstablecerPassword = lazy(() => import('./features/auth/EstablecerPassword.jsx'))
 
+// 27 jul 2026 (sesión 24, colaboración): /registro — autoservicio para
+// co-asesores invitados desde "Mi equipo" (Configuración). Mismo criterio
+// de ruteo manual que /p/:id; el link de confirmación de signUp también
+// regresa a /registro (emailRedirectTo), así que este único chequeo de
+// pathname cubre la ida y la vuelta. El 404.html de GitHub Pages ya
+// preserva pathname+hash para las llegadas directas.
+const Registro = lazy(() => import('./features/auth/Registro.jsx'))
+
 const matchPropiedadPublica = window.location.pathname.match(/^\/p\/([^/]+)\/?$/)
 const esInvitacion = /type=invite/.test(window.location.hash) || /type=invite/.test(window.location.search)
+const esRegistro = /^\/registro\/?$/.test(window.location.pathname)
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -35,6 +44,10 @@ createRoot(document.getElementById('root')).render(
     ) : esInvitacion ? (
       <Suspense fallback={null}>
         <EstablecerPassword />
+      </Suspense>
+    ) : esRegistro ? (
+      <Suspense fallback={null}>
+        <Registro />
       </Suspense>
     ) : (
       <App />

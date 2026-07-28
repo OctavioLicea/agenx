@@ -25,7 +25,8 @@ Reglas:
   habérsele olvidado la palabra, pero la duda se aclara antes de tocar
   archivos.
 
-Establecido el 27 jul 2026 (sesión 23), a prueba.
+Establecido el 27 jul 2026 (sesión 23). Confirmado por Okta en la
+sesión 24 (mismo día) — ya no está a prueba, es protocolo permanente.
 
 ---
 

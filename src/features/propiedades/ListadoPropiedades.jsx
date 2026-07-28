@@ -172,6 +172,10 @@ const coloresEstado = {
   captacion: { bg: '#F1EFE8', text: '#5F5E5A' },
   disponible: { bg: '#EAF3DE', text: '#27500A' },
   en_proceso: { bg: '#FAEEDA', text: '#633806' },
+  // Sesión 24 (27 jul): estado nuevo del embudo — ver ESTADOS en
+  // FichaBasico.jsx. Azul para distinguirlo de "en proceso" (ámbar) y
+  // "cerrada" (rojo).
+  separada: { bg: '#E6F1FB', text: '#0C447C' },
   cerrada: { bg: '#FCEBEB', text: '#791F1F' },
 }
 
@@ -179,6 +183,7 @@ const etiquetasEstado = {
   captacion: 'Captación',
   disponible: 'Disponible',
   en_proceso: 'En proceso',
+  separada: 'Separada',
   cerrada: 'Cerrada',
 }
 

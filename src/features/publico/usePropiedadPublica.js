@@ -170,6 +170,26 @@ export function usePropiedadPublica(id) {
     .map(([, , label]) => label)
     .concat(extras.filter((e) => tieneValor(e.nombre) && e.tipo === 'si_no' && e.valor === true).map((e) => e.nombre))
 
+  // 27 jul 2026 (sesión 24) — distintivos de estado y "bajó de precio".
+  // La vista `propiedades_publicas` ya hace el gating del lado del
+  // servidor: `estado_publico` solo llega si Nydia prendió el toggle (y
+  // solo con valores separada/cerrada), y `bajo_de_precio`/
+  // `precio_anterior` solo cuando el estado no los vuelve irrelevantes.
+  // Aquí solo se traduce a etiqueta: cerrada + renta → Rentada, cerrada +
+  // venta → Vendida.
+  const etiquetaEstado = propiedad?.estado_publico
+    ? propiedad.estado_publico === 'separada'
+      ? 'Separada'
+      : propiedad.operacion === 'renta'
+        ? 'Rentada'
+        : 'Vendida'
+    : null
+  const bajoDePrecio = propiedad?.bajo_de_precio === true && !etiquetaEstado
+  const precioAnteriorTexto =
+    bajoDePrecio && tieneValor(propiedad?.precio_anterior)
+      ? formatearPrecio(propiedad.precio_anterior, propiedad.moneda)
+      : null
+
   const mensajeWa = propiedad
     ? encodeURIComponent(`Hola, me interesa la propiedad "${propiedad.titulo || 'Propiedad'}" que vi en tu página.`)
     : ''
@@ -210,6 +230,9 @@ export function usePropiedadPublica(id) {
     zonaConectividad,
     serviciosZona,
     hayZonaConectividad,
+    etiquetaEstado,
+    bajoDePrecio,
+    precioAnteriorTexto,
     mensajeWa,
     compartido,
     compartirLiga,

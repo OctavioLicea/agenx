@@ -14,11 +14,17 @@
 //   PIN pide el actual primero; quitarlo es directo con confirm(). El
 //   flujo de "olvidé mi PIN" vive en FichaDocumentos.jsx (donde se pide
 //   el PIN), no aquí — aquí solo se configura/cambia/quita.
-// Timestamp: 2026-07-13, 23:40 hrs
+//   [Actualización 2026-07-27, sesión 24]: las secciones de CONFIGURACIÓN
+//   (Requisitos de renta, Página pública/tema, Seguridad/PIN) se movieron
+//   al módulo nuevo Configuración (ConfiguracionForm.jsx, engrane en el
+//   TopBar) — pedido de Okta: Mi Perfil se queda solo con la IDENTIDAD
+//   del asesor. Campo nuevo "Iniciales" (máx 3, se sugieren solas desde
+//   el nombre completo): rastro de "capturada por / última edición" en
+//   propiedades, para la co-asesoría.
+// Timestamp: 2026-07-27
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { generarSalt, hashPin, verificarPin, PIN_LARGO } from '../../lib/bovedaPin'
 
 function crearId() {
   return Math.random().toString(36).slice(2, 9)
@@ -213,78 +219,19 @@ function ControlSubidaImagen({ titulo, ayuda, url, subiendo, onElegir, onQuitar,
   )
 }
 
-// Textarea de texto libre con autosave al salir del campo (blur) — mismo
-// patrón que CampoEditable, pero multilínea. Usado para las plantillas de
-// requisitos de renta (24 jul): Nydia escribe una sola vez, con viñetas a
-// mano si quiere, y eso se precarga luego en cada propiedad nueva en renta
-// (ver FichaBasico.jsx).
-function CampoTextoLargo({ label, value, onChange, placeholder, rows = 5 }) {
-  const [valor, setValor] = useState(value || '')
+// (CampoTextoLargo, IconoCandado e InputPin se movieron a
+// ConfiguracionForm.jsx junto con sus secciones — sesión 24.)
 
-  useEffect(() => {
-    setValor(value || '')
-  }, [value])
-
-  const confirmar = () => {
-    if (valor.trim() !== (value || '').trim()) onChange(valor)
-  }
-
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <p style={{ fontSize: 13, color: 'var(--ta-text)', margin: '0 0 6px' }}>{label}</p>
-      <textarea
-        value={valor}
-        onChange={(e) => setValor(e.target.value)}
-        onBlur={confirmar}
-        placeholder={placeholder}
-        rows={rows}
-        style={{
-          width: '100%',
-          padding: '10px 12px',
-          borderRadius: 10,
-          border: '0.5px solid var(--ta-border)',
-          background: '#FFFFFF',
-          color: 'var(--ta-text)',
-          fontSize: 13,
-          fontFamily: 'inherit',
-          lineHeight: 1.5,
-          resize: 'vertical',
-          boxSizing: 'border-box',
-        }}
-      />
-    </div>
-  )
-}
-
-function IconoCandado() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  )
-}
-
-// Input de PIN de 4 dígitos — solo dígitos, autoFocus opcional, mismo
-// estilo visual que el resto de inputs del perfil.
-function InputPin({ value, onChange, placeholder, autoFocus }) {
-  return (
-    <input
-      type="password"
-      inputMode="numeric"
-      pattern="[0-9]*"
-      maxLength={PIN_LARGO}
-      autoFocus={autoFocus}
-      value={value}
-      onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, PIN_LARGO))}
-      placeholder={placeholder}
-      style={{
-        width: '100%', height: 40, borderRadius: 8, border: '0.5px solid var(--ta-border)',
-        background: '#FFFFFF', color: 'var(--ta-text)', fontSize: 18, letterSpacing: 6,
-        textAlign: 'center', boxSizing: 'border-box',
-      }}
-    />
-  )
+// Sugerencia automática de iniciales a partir del nombre completo:
+// primera letra de hasta 3 palabras ("Nydia Jaramillo Sandoval" → "NJS").
+function sugerirIniciales(nombre) {
+  return (nombre || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((p) => p.charAt(0).toUpperCase())
+    .join('')
 }
 
 // Fila de "Datos personales" editable in-line: etiqueta arriba, valor
@@ -375,12 +322,7 @@ const inputStyle = {
   boxSizing: 'border-box',
 }
 
-const labelStyle = {
-  display: 'block',
-  fontSize: 13,
-  color: 'var(--ta-text-muted)',
-  marginBottom: 6,
-}
+// (labelStyle se fue con las secciones movidas a ConfiguracionForm.jsx.)
 
 const encabezadoSeccion = {
   fontSize: 12,
@@ -408,12 +350,11 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
   // la página pública; resuelve la decisión abierta que bloqueaba el
   // botón "Correo" del tema Elegance (ver docs/BACKLOG.md).
   const [correoPublico, setCorreoPublico] = useState('')
+  // Iniciales (sesión 24, co-asesoría): rastro de "capturada por / última
+  // edición" en propiedades. Máx 3 letras, sugeridas desde el nombre.
+  const [inicialesPerfil, setInicialesPerfil] = useState('')
   const [telefonos, setTelefonos] = useState([])
   const [redesSociales, setRedesSociales] = useState([])
-  // Plantillas de requisitos de renta (24 jul) — texto libre por tipo de
-  // arrendatario, se precarga en cada propiedad nueva en renta.
-  const [plantillaReqFisica, setPlantillaReqFisica] = useState('')
-  const [plantillaReqMoral, setPlantillaReqMoral] = useState('')
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [subiendoAvatar, setSubiendoAvatar] = useState(false)
   const avatarInputRef = useRef(null)
@@ -431,32 +372,15 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
   const [subiendoTarjeta, setSubiendoTarjeta] = useState(false)
   const tarjetaInputRef = useRef(null)
 
-  // Tema de la página pública (17 jul, sistema de temas) — un tema a la
-  // vez por asesor. `accesoTemaElegante` decide si Elegance aparece como
-  // opción; viene de una columna real (no un hardcode de quién es Nydia
-  // en el código), la activa Okta a mano por asesor en Supabase.
-  const [estiloPaginaPublica, setEstiloPaginaPublica] = useState('estandar')
-  const [accesoTemaElegante, setAccesoTemaElegante] = useState(false)
-  const [accesoTemaNocturno, setAccesoTemaNocturno] = useState(false)
-
-  // Seguridad — PIN de la Bóveda. bovedaPinHash/Salt reflejan lo que hay
-  // guardado en BD; el resto es estado local del mini-formulario de
-  // configurar/cambiar PIN (nunca visible a la vez que el de "quitar").
-  const [bovedaPinHash, setBovedaPinHash] = useState(null)
-  const [bovedaPinSalt, setBovedaPinSalt] = useState(null)
-  const [mostrarFormPin, setMostrarFormPin] = useState(false)
-  const [pinActual, setPinActual] = useState('')
-  const [pinNuevo, setPinNuevo] = useState('')
-  const [pinConfirmar, setPinConfirmar] = useState('')
-  const [errorPin, setErrorPin] = useState(null)
-  const [guardandoPin, setGuardandoPin] = useState(false)
+  // (Tema de página pública y PIN de la Bóveda viven ahora en
+  // ConfiguracionForm.jsx — sesión 24.)
 
   useEffect(() => {
     if (!user) return
 
     supabase
       .from('perfiles')
-      .select('nombre_completo, nombre_corto, nombre_comercial, correo_publico, telefonos, redes_sociales, avatar_url, logo_url, tarjeta_presentacion_url, color_acento, boveda_pin_hash, boveda_pin_salt, estilo_pagina_publica, acceso_tema_elegante, acceso_tema_nocturno, plantilla_requisitos_renta_fisica, plantilla_requisitos_renta_moral')
+      .select('nombre_completo, nombre_corto, nombre_comercial, correo_publico, iniciales, telefonos, redes_sociales, avatar_url, logo_url, tarjeta_presentacion_url, color_acento')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data, error: fetchError }) => {
@@ -467,6 +391,7 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
           setNombreCorto(data.nombre_corto || '')
           setNombreComercial(data.nombre_comercial || '')
           setCorreoPublico(data.correo_publico || '')
+          setInicialesPerfil(data.iniciales || '')
           setTelefonos(
             (data.telefonos || []).map((t) => ({ ...t, _id: crearId() }))
           )
@@ -477,86 +402,10 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
           setLogoUrl(data.logo_url || null)
           setTarjetaUrl(data.tarjeta_presentacion_url || null)
           setColorAcento(data.color_acento || COLOR_ACENTO_DEFAULT)
-          setBovedaPinHash(data.boveda_pin_hash || null)
-          setBovedaPinSalt(data.boveda_pin_salt || null)
-          setEstiloPaginaPublica(data.estilo_pagina_publica || 'estandar')
-          setAccesoTemaElegante(data.acceso_tema_elegante === true)
-          setAccesoTemaNocturno(data.acceso_tema_nocturno === true)
-          setPlantillaReqFisica(data.plantilla_requisitos_renta_fisica || '')
-          setPlantillaReqMoral(data.plantilla_requisitos_renta_moral || '')
         }
         setCargando(false)
       })
   }, [user])
-
-  const resetFormPin = () => {
-    setMostrarFormPin(false)
-    setPinActual('')
-    setPinNuevo('')
-    setPinConfirmar('')
-    setErrorPin(null)
-  }
-
-  // Configurar (primera vez) o cambiar (pide el PIN actual primero) el PIN
-  // de la Bóveda. Guarda hash + salt nuevos en tuasesor.perfiles — nunca
-  // se guarda el PIN en claro, ni siquiera de paso.
-  const guardarPin = async () => {
-    setErrorPin(null)
-
-    if (bovedaPinHash) {
-      const actualOk = await verificarPin(pinActual, bovedaPinSalt, bovedaPinHash)
-      if (!actualOk) {
-        setErrorPin('El PIN actual no es correcto.')
-        return
-      }
-    }
-    if (pinNuevo.length !== PIN_LARGO) {
-      setErrorPin(`El PIN debe tener ${PIN_LARGO} dígitos.`)
-      return
-    }
-    if (pinNuevo !== pinConfirmar) {
-      setErrorPin('Los dos PIN no coinciden.')
-      return
-    }
-
-    setGuardandoPin(true)
-    const salt = generarSalt()
-    const hash = await hashPin(pinNuevo, salt)
-
-    const { error: saveError } = await supabase.from('perfiles').upsert({
-      id: user.id,
-      boveda_pin_hash: hash,
-      boveda_pin_salt: salt,
-    })
-    setGuardandoPin(false)
-
-    if (saveError) {
-      setErrorPin('No se pudo guardar el PIN. Intenta de nuevo.')
-      return
-    }
-
-    setBovedaPinHash(hash)
-    setBovedaPinSalt(salt)
-    resetFormPin()
-  }
-
-  const quitarPin = async () => {
-    const ok = window.confirm('¿Quitar el PIN de la Bóveda? Cualquiera que abra la app podrá ver los documentos de tus propiedades sin código.')
-    if (!ok) return
-
-    const { error: saveError } = await supabase.from('perfiles').upsert({
-      id: user.id,
-      boveda_pin_hash: null,
-      boveda_pin_salt: null,
-    })
-    if (saveError) {
-      setError('No se pudo quitar el PIN. Intenta de nuevo.')
-      return
-    }
-    setBovedaPinHash(null)
-    setBovedaPinSalt(null)
-    sessionStorage.removeItem('ta_boveda_unlocked')
-  }
 
   const agregarTelefono = () => {
     setTelefonos((prev) => [...prev, { _id: crearId(), etiqueta: '', numero: '' }])
@@ -763,13 +612,6 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
     await supabase.from('perfiles').upsert({ id: user.id, color_acento: hex })
   }
 
-  // Tema de la página pública: autosave inmediato al elegir, mismo patrón
-  // que el color de acento — no depende del botón "Guardar cambios".
-  const actualizarEstiloPaginaPublica = async (estilo) => {
-    setEstiloPaginaPublica(estilo)
-    await supabase.from('perfiles').upsert({ id: user.id, estilo_pagina_publica: estilo })
-  }
-
   const handleGuardar = async (e) => {
     e.preventDefault()
     setError(null)
@@ -810,7 +652,7 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
     )
   }
 
-  const iniciales = (nombreCorto || nombreCompleto || '?').trim().charAt(0).toUpperCase()
+  const inicialAvatar = (nombreCorto || nombreCompleto || '?').trim().charAt(0).toUpperCase()
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '1.5rem 1rem 3rem' }}>
@@ -849,7 +691,7 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
             {avatarUrl ? (
               <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              iniciales
+              inicialAvatar
             )}
             <div
               style={{
@@ -902,7 +744,16 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
               onChange={(v) => guardarCampo('correo_publico', v, setCorreoPublico)}
               placeholder="nydia@ejemplo.com"
             />
+            <CampoEditable
+              label="Iniciales"
+              value={inicialesPerfil}
+              onChange={(v) => guardarCampo('iniciales', v.toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ]/g, '').slice(0, 3), setInicialesPerfil)}
+              placeholder={sugerirIniciales(nombreCompleto) || 'NJS'}
+            />
           </div>
+          <p style={{ margin: '6px 2px 0', fontSize: 11, color: 'var(--ta-text-muted)' }}>
+            Las iniciales (máx. 3 letras) identifican quién capturó o editó cada propiedad cuando colaboras con tu equipo.
+          </p>
           <p style={{ margin: '6px 2px 0', fontSize: 11, color: 'var(--ta-text-muted)' }}>
             El correo público es el que ven tus clientes (página pública, PDF). Es distinto de {user?.email}, con el que entras al CRM.
           </p>
@@ -1023,29 +874,6 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
             </button>
           </div>
 
-          {/* Plantillas de requisitos de renta (24 jul) — texto fijo que
-              Nydia redacta una sola vez aquí y se precarga en cada
-              propiedad nueva que ponga en renta (ver cambiarOperacion en
-              FichaBasico.jsx); queda editable caso por caso en esa ficha. */}
-          <div style={divisorSeccion}>
-            <p style={encabezadoSeccion}>Requisitos de renta</p>
-            <p style={{ margin: '0 0 14px', fontSize: 11, color: 'var(--ta-text-muted)' }}>
-              Se precarga automáticamente en cada propiedad nueva que pongas en renta — puedes ajustarla después, propiedad por propiedad.
-            </p>
-            <CampoTextoLargo
-              label="Persona física"
-              value={plantillaReqFisica}
-              onChange={(v) => guardarCampo('plantilla_requisitos_renta_fisica', v, setPlantillaReqFisica)}
-              placeholder={'• Identificación oficial\n• Comprobante de domicilio\n• Comprobante de ingresos\n• Aval o fiador'}
-            />
-            <CampoTextoLargo
-              label="Persona moral"
-              value={plantillaReqMoral}
-              onChange={(v) => guardarCampo('plantilla_requisitos_renta_moral', v, setPlantillaReqMoral)}
-              placeholder={'• Acta constitutiva\n• Poder del representante legal\n• Comprobante de domicilio fiscal\n• Estados financieros'}
-            />
-          </div>
-
           {/* Marca — antes deshabilitada con badge "Próximamente". Ahora
               funcional: logo (usado en el PDF de ficha técnica), tarjeta de
               presentación (18 jul, columna reservada desde Sesión 9) y
@@ -1118,140 +946,8 @@ export default function PerfilForm({ user, onGuardado, onPerfilActualizado }) {
             </div>
           </div>
 
-          {/* Estilo de la página pública (17 jul, sistema de temas) — un
-              tema a la vez. Elegance solo aparece si accesoTemaElegante
-              viene en true desde la BD (columna real, activada a mano por
-              asesor — no depende de quién esté logueado). */}
-          <div style={{ ...divisorSeccion, background: 'var(--ta-bg)', borderRadius: 12, padding: 16, marginTop: 24 }}>
-            <p style={{ ...encabezadoSeccion, marginBottom: 4 }}>Página pública</p>
-            <p style={{ margin: '0 0 14px', fontSize: 11, color: 'var(--ta-text-muted)' }}>
-              Estilo visual de la ficha que ven tus clientes en el link público de cada propiedad.
-            </p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => actualizarEstiloPaginaPublica('estandar')}
-                style={{
-                  flex: '1 1 140px', textAlign: 'left', padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
-                  border: estiloPaginaPublica === 'estandar' ? '1.5px solid var(--ta-accent)' : '0.5px solid var(--ta-border)',
-                  background: '#fff',
-                }}
-              >
-                <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 500, color: 'var(--ta-text)' }}>Estándar</p>
-                <p style={{ margin: 0, fontSize: 11, color: 'var(--ta-text-muted)' }}>Verde y caliza, el de siempre</p>
-              </button>
-
-              {accesoTemaElegante && (
-                <button
-                  type="button"
-                  onClick={() => actualizarEstiloPaginaPublica('elegante')}
-                  style={{
-                    flex: '1 1 140px', textAlign: 'left', padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
-                    border: estiloPaginaPublica === 'elegante' ? '1.5px solid var(--ta-accent)' : '0.5px solid var(--ta-border)',
-                    background: '#fff',
-                  }}
-                >
-                  <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 500, color: 'var(--ta-text)' }}>Elegance</p>
-                  <p style={{ margin: 0, fontSize: 11, color: 'var(--ta-text-muted)' }}>Blanco y dorado, look de alta plusvalía</p>
-                </button>
-              )}
-
-              {accesoTemaNocturno && (
-                <button
-                  type="button"
-                  onClick={() => actualizarEstiloPaginaPublica('nocturno')}
-                  style={{
-                    flex: '1 1 140px', textAlign: 'left', padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
-                    border: estiloPaginaPublica === 'nocturno' ? '1.5px solid var(--ta-accent)' : '0.5px solid var(--ta-border)',
-                    background: '#fff',
-                  }}
-                >
-                  <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 500, color: 'var(--ta-text)' }}>Nocturno</p>
-                  <p style={{ margin: 0, fontSize: 11, color: 'var(--ta-text-muted)' }}>Negro y dorado, minimalista de lujo</p>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Seguridad — PIN de la Bóveda de documentos. Independiente del
-              botón "Guardar cambios" de abajo (mismo patrón de autosave que
-              avatar/logo/color), para no perder el PIN si algo falla en el
-              resto del formulario. */}
-          <div style={{ ...divisorSeccion, background: 'var(--ta-bg)', borderRadius: 12, padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <IconoCandado />
-              <p style={{ ...encabezadoSeccion, margin: 0 }}>Seguridad</p>
-            </div>
-
-            {!mostrarFormPin ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <div>
-                  <p style={{ margin: '0 0 3px', fontSize: 13, color: 'var(--ta-text)' }}>
-                    PIN de la Bóveda {bovedaPinHash ? '· activo' : '· sin configurar'}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 11, color: 'var(--ta-text-muted)' }}>
-                    Pide un código de 4 dígitos para abrir los documentos de una propiedad.
-                  </p>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                  <button
-                    type="button"
-                    onClick={() => setMostrarFormPin(true)}
-                    style={{ border: 'none', background: 'none', color: 'var(--ta-accent)', fontSize: 12, cursor: 'pointer', padding: 0, textAlign: 'right' }}
-                  >
-                    {bovedaPinHash ? 'Cambiar' : 'Configurar'}
-                  </button>
-                  {bovedaPinHash && (
-                    <button
-                      type="button"
-                      onClick={quitarPin}
-                      style={{ border: 'none', background: 'none', color: '#993C1D', fontSize: 12, cursor: 'pointer', padding: 0, textAlign: 'right' }}
-                    >
-                      Quitar
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div>
-                {bovedaPinHash && (
-                  <div style={{ marginBottom: 10 }}>
-                    <p style={{ margin: '0 0 4px', fontSize: 11, color: 'var(--ta-text-muted)' }}>PIN actual</p>
-                    <InputPin value={pinActual} onChange={setPinActual} placeholder="····" autoFocus />
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: '0 0 4px', fontSize: 11, color: 'var(--ta-text-muted)' }}>PIN nuevo</p>
-                    <InputPin value={pinNuevo} onChange={setPinNuevo} placeholder="····" autoFocus={!bovedaPinHash} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: '0 0 4px', fontSize: 11, color: 'var(--ta-text-muted)' }}>Confirmar</p>
-                    <InputPin value={pinConfirmar} onChange={setPinConfirmar} placeholder="····" />
-                  </div>
-                </div>
-                {errorPin && <p style={{ color: '#993C1D', fontSize: 12, margin: '0 0 10px' }}>{errorPin}</p>}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={resetFormPin}
-                    disabled={guardandoPin}
-                    style={{ flex: 1, height: 38, borderRadius: 8, border: '0.5px solid var(--ta-border)', background: 'var(--ta-surface)', color: 'var(--ta-text)', fontSize: 13 }}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={guardarPin}
-                    disabled={guardandoPin}
-                    style={{ flex: 2, height: 38, borderRadius: 8, border: 'none', background: 'var(--ta-accent)', color: 'var(--ta-on-accent)', fontSize: 13, fontWeight: 500, opacity: guardandoPin ? 0.6 : 1 }}
-                  >
-                    {guardandoPin ? 'Guardando...' : 'Guardar PIN'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* (Página pública y Seguridad viven ahora en el módulo
+              Configuración — sesión 24.) */}
 
           {error && (
             <p role="alert" style={{ color: '#993C1D', fontSize: 13, margin: '20px 0 0' }}>

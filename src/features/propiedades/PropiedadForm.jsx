@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import BotonCerrar from '../../components/BotonCerrar'
+import { supabase } from '../../lib/supabaseClient'
 import { usePropiedad, PROPIEDAD_VACIA } from './hooks/usePropiedad'
 import FichaBasico from './tabs/FichaBasico'
 import FichaMediaUbic from './tabs/FichaMediaUbic'
@@ -282,6 +283,45 @@ export default function PropiedadForm({ propiedadInicial, onGuardado }) {
   const [mostrarPostFacebook, setMostrarPostFacebook] = useState(false)
   const [ligaCopiada, setLigaCopiada] = useState(false)
   const ultimoGuardado = useRef(JSON.stringify(propiedad))
+
+  // Espejo del estado para el efecto de refetch de abajo (que corre una
+  // sola vez y por eso su closure ve la versión del montaje). Se
+  // actualiza en efecto, no durante el render (regla react-hooks).
+  const propiedadRef = useRef(propiedad)
+  useEffect(() => {
+    propiedadRef.current = propiedad
+  }, [propiedad])
+
+  // 27 jul 2026 (sesión 24, reportado por Okta): `propiedadInicial` puede
+  // venir VIEJA — App.jsx guarda un snapshot de la propiedad en el
+  // historial del navegador (pushState), y regresar a la ficha con
+  // atrás/adelante restaura ese snapshot congelado, no lo último guardado
+  // (el síntoma: puso "Separada", salió, regresó, y la ficha decía
+  // "Disponible" aunque en BD estaba bien). El fix del listado no cubre
+  // ese camino. Fix de raíz: al montar con una propiedad ya existente se
+  // trae la copia autoritativa de la BD y se aplica SOLO si el usuario
+  // aún no editó nada (para nunca pisar un cambio recién tecleado).
+  // `ultimoGuardado` se actualiza junto para no disparar un autosave
+  // redundante con lo que acaba de llegar del servidor.
+  useEffect(() => {
+    const id = propiedadInicial?.id
+    if (!id) return
+    let activo = true
+    supabase
+      .from('propiedades')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!activo || !data) return
+        const sinEditar = JSON.stringify(propiedadRef.current) === ultimoGuardado.current
+        if (!sinEditar) return
+        ultimoGuardado.current = JSON.stringify({ ...propiedadRef.current, ...data })
+        actualizar(data)
+      })
+    return () => { activo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const idxActual = PASOS.findIndex((p) => p.key === paso)
   const bloqueado = !propiedad.id

@@ -30,6 +30,9 @@ import './App.css'
 const PropiedadForm = lazy(() => import('./features/propiedades/PropiedadForm'))
 const ContactoForm = lazy(() => import('./features/contactos/ContactoForm'))
 const PerfilForm = lazy(() => import('./features/perfil/PerfilForm'))
+// Sesión 24 (27 jul): módulo Configuración (engrane) — secciones de
+// ajustes movidas de PerfilForm + "Mi equipo" (colaboración).
+const ConfiguracionForm = lazy(() => import('./features/configuracion/ConfiguracionForm'))
 
 function App() {
   const [sesion, setSesion] = useState(null)
@@ -44,7 +47,7 @@ function App() {
   // le faltan nombre/nombre comercial, se cierra la sesión de inmediato
   // en vez de mostrar el CRM (aunque sea vacío).
   const [estadoAcceso, setEstadoAcceso] = useState('verificando') // 'verificando' | 'ok' | 'denegado'
-  const [vista, setVista] = useState('buscador') // 'buscador' | 'form' | 'perfil' | 'contactos' | 'contacto-form' | 'interacciones' | 'citas'
+  const [vista, setVista] = useState('buscador') // 'buscador' | 'form' | 'perfil' | 'configuracion' | 'contactos' | 'contacto-form' | 'interacciones' | 'citas'
   const [propiedadSeleccionada, setPropiedadSeleccionada] = useState(null)
   const [contactoSeleccionado, setContactoSeleccionado] = useState(null)
   const [perfilVersion, setPerfilVersion] = useState(0)
@@ -154,6 +157,7 @@ function App() {
       const estado = evento.state
       if (!estado) {
         setVista('buscador')
+        setListadoVersion((v) => v + 1)
         setPropiedadSeleccionada(null)
         setContactoSeleccionado(null)
         if (!avisoSalirRef.current) {
@@ -168,6 +172,15 @@ function App() {
         return
       }
       setVista(estado.vista)
+      // 27 jul 2026 (sesión 24, reportado por Okta): regresar con el botón
+      // de ATRÁS del navegador restauraba la vista pero no refrescaba el
+      // listado — a diferencia de salir con Cerrar/Home (irAlBuscador /
+      // irAContactos), que sí suben la versión. El listado se quedaba con
+      // su copia vieja en memoria y reabrir una propiedad recién editada
+      // mostraba los valores de antes (ej. estado "Disponible" tras
+      // haberla puesto en "Separada"), aunque en BD sí estuviera guardada.
+      if (estado.vista === 'buscador') setListadoVersion((v) => v + 1)
+      if (estado.vista === 'contactos') setListadoContactosVersion((v) => v + 1)
       setPropiedadSeleccionada(estado.propiedadSeleccionada ?? null)
       setContactoSeleccionado(estado.contactoSeleccionado ?? null)
     }
@@ -225,6 +238,19 @@ function App() {
   // asesor vería el buscador sin ninguna explicación de por qué su liga
   // "no hizo nada". Por eso se muestra un aviso explícito y se queda en
   // el buscador.
+  // Sesión 24 (colaboración): si este correo aparece en el equipo de
+  // algún asesor y su cuenta existía desde antes, reclama su miembro_uid
+  // (el semáforo "con cuenta" de Mi equipo). Para cuentas nuevas lo hace
+  // el trigger de perfiles; esta llamada cubre a las que ya existían.
+  // Fire-and-forget: si falla no bloquea nada, solo queda el semáforo en
+  // "sin cuenta" hasta el siguiente login.
+  useEffect(() => {
+    if (estadoAcceso !== 'ok') return
+    supabase.rpc('reclamar_membresias').then(({ error }) => {
+      if (error) console.warn('reclamar_membresias falló:', error.message)
+    })
+  }, [estadoAcceso])
+
   useEffect(() => {
     if (estadoAcceso !== 'ok') return
     const id = propiedadDeLigaRef.current
@@ -261,6 +287,10 @@ function App() {
 
   const irAlPerfil = () => {
     irAVista('perfil')
+  }
+
+  const irAConfiguracion = () => {
+    irAVista('configuracion')
   }
 
   const alGuardarPerfil = () => {
@@ -323,7 +353,9 @@ function App() {
       ? ['Propiedades']
       : vista === 'perfil'
         ? ['Mi perfil']
-        : vista === 'contactos'
+        : vista === 'configuracion'
+          ? ['Configuración']
+          : vista === 'contactos'
           ? ['Contactos']
           : vista === 'contacto-form'
             ? ['Contactos', contactoSeleccionado ? 'Editar' : 'Nuevo']
@@ -345,6 +377,7 @@ function App() {
         onIrAInteracciones={irAInteracciones}
         onIrACitas={irACitas}
         onVerPerfil={irAlPerfil}
+        onVerConfiguracion={irAConfiguracion}
         onLogout={handleLogout}
       />
 
@@ -402,6 +435,12 @@ function App() {
             onGuardado={alGuardarPerfil}
             onPerfilActualizado={() => setPerfilVersion((v) => v + 1)}
           />
+        </Suspense>
+      )}
+
+      {vista === 'configuracion' && (
+        <Suspense fallback={<p style={{ textAlign: 'center', marginTop: '4rem', color: 'var(--ta-text-muted)' }}>Cargando...</p>}>
+          <ConfiguracionForm user={sesion.user} />
         </Suspense>
       )}
 

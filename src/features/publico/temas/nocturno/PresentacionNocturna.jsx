@@ -37,7 +37,7 @@ function FilaDato({ label, valor }) {
   )
 }
 
-function GaleriaNocturna({ fotos, logoUrl, onAbrir }) {
+function GaleriaNocturna({ fotos, logoUrl, onAbrir, distintivo }) {
   const [indice, setIndice] = useState(0)
   if (fotos.length === 0) return null
   const miniaturas = fotos.slice(1, 5)
@@ -52,10 +52,25 @@ function GaleriaNocturna({ fotos, logoUrl, onAbrir }) {
         onClick={() => onAbrir(indice)}
         aria-label="Ver foto ampliada"
         className="no-carrusel"
-        style={{ border: 'none', padding: 0, width: '100%', display: 'block', cursor: 'pointer' }}
+        style={{ border: 'none', padding: 0, width: '100%', display: 'block', cursor: 'pointer', position: 'relative' }}
       >
         <img src={fotos[indice].url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         <Marca logoUrl={logoUrl} />
+        {/* 27 jul (sesión 24): listón de estado — fondo negro con filo
+            dorado, el lenguaje de Nocturno. */}
+        {distintivo && (
+          <span
+            style={{
+              position: 'absolute', top: 16, left: 0, background: 'rgba(20,19,16,0.9)',
+              color: 'var(--no-accent)', fontSize: 11.5, letterSpacing: 2.5,
+              textTransform: 'uppercase', padding: '6px 16px',
+              border: '0.5px solid var(--no-accent)', borderLeft: '3px solid var(--no-accent)',
+              pointerEvents: 'none',
+            }}
+          >
+            {distintivo}
+          </span>
+        )}
       </button>
 
       {fotos.length > 1 && (
@@ -101,6 +116,7 @@ export default function PresentacionNocturna({ datos }) {
     marcaTexto, telefonoPrincipal, telefonoWa, precioTexto,
     tieneUbicacion, amenidadesActivas, terminosRenta, mensajeWa,
     plano, zonaConectividad, serviciosZona, hayZonaConectividad,
+    etiquetaEstado, bajoDePrecio, precioAnteriorTexto,
     compartido, compartirLiga,
   } = datos
 
@@ -164,8 +180,29 @@ export default function PresentacionNocturna({ datos }) {
           </div>
 
           <h1 className="no-titulo">{propiedad.titulo || 'Propiedad'}</h1>
+          {/* 27 jul (sesión 24): distintivos — nunca llegan ambos a la vez
+              (garantizado en usePropiedadPublica). El chip va en su propio
+              renglón arriba del precio: inline dentro del <p> se
+              desacomodaba cuando el precio envolvía línea. */}
+          {etiquetaEstado && (
+            <span className="no-badge" style={{ display: 'inline-block', border: '0.5px solid var(--no-accent)', color: 'var(--no-accent)', marginBottom: 8 }}>
+              {etiquetaEstado}
+            </span>
+          )}
+          {bajoDePrecio && (
+            <span className="no-badge" style={{ display: 'inline-block', border: '0.5px solid var(--no-accent)', color: 'var(--no-accent)', marginBottom: 8 }}>
+              ↓ Bajó de precio
+            </span>
+          )}
+          {precioAnteriorTexto && (
+            <p style={{ margin: '0 0 2px', fontSize: 14, color: 'var(--no-muted)', textDecoration: 'line-through' }}>
+              {precioAnteriorTexto}{propiedad.operacion === 'renta' ? ' /mes' : ''}
+            </p>
+          )}
           {precioTexto && (
-            <p className="no-precio">{precioTexto}{propiedad.operacion === 'renta' ? ' /mes' : ''}</p>
+            <p className="no-precio">
+              {precioTexto}{propiedad.operacion === 'renta' ? ' /mes' : ''}
+            </p>
           )}
 
           <div className="no-tabla">
@@ -224,7 +261,7 @@ export default function PresentacionNocturna({ datos }) {
         </div>
 
         <div>
-          <GaleriaNocturna fotos={fotos} logoUrl={perfil?.logo_url} onAbrir={setLightboxIndex} />
+          <GaleriaNocturna fotos={fotos} logoUrl={perfil?.logo_url} onAbrir={setLightboxIndex} distintivo={etiquetaEstado} />
 
           {tieneUbicacion && (
             <a

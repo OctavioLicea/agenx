@@ -74,6 +74,17 @@ function IconoUsuario() {
   )
 }
 
+// Sesión 24 (27 jul): módulo Configuración — engrane, mismo trazo 1.8
+// que el resto de los íconos del menú.
+function IconoConfiguracion() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  )
+}
+
 function IconoSalir() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -84,7 +95,7 @@ function IconoSalir() {
   )
 }
 
-export default function TopBar({ user, userName, userEmail, perfilVersion, breadcrumb = ['Propiedades'], onHome, onIrAContactos, onIrAInteracciones, onIrACitas, onVerPerfil, onLogout }) {
+export default function TopBar({ user, userName, userEmail, perfilVersion, breadcrumb = ['Propiedades'], onHome, onIrAContactos, onIrAInteracciones, onIrACitas, onVerPerfil, onVerConfiguracion, onLogout }) {
   const [ahora, setAhora] = useState(new Date())
   const [menuAbierto, setMenuAbierto] = useState(false)
   const menuRef = useRef(null)
@@ -353,6 +364,33 @@ export default function TopBar({ user, userName, userEmail, perfilVersion, bread
             >
               <IconoUsuario />
               Mi perfil
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuAbierto(false)
+                onVerConfiguracion?.()
+              }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '10px 14px',
+                border: 'none',
+                borderTop: '0.5px solid var(--ta-border)',
+                background: 'none',
+                color: breadcrumb[0] === 'Configuración' ? 'var(--ta-accent)' : 'var(--ta-text)',
+                fontWeight: breadcrumb[0] === 'Configuración' ? 500 : 400,
+                fontSize: 13,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <IconoConfiguracion />
+              Configuración
             </button>
 
             <button

@@ -21,7 +21,7 @@ import './estandar.css'
 // foco global y la navegación por teclado funcionen — mismo criterio de
 // accesibilidad ya usado en el resto de la app.
 
-function GaleriaFotos({ fotos, logoUrl, onAbrir }) {
+function GaleriaFotos({ fotos, logoUrl, onAbrir, distintivo }) {
   if (fotos.length === 0) return null
   const portada = fotos[0]
   const resto = fotos.slice(1, 5)
@@ -37,6 +37,20 @@ function GaleriaFotos({ fotos, logoUrl, onAbrir }) {
       >
         <img src={portada.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', aspectRatio: '4 / 3' }} />
         <Marca logoUrl={logoUrl} />
+        {/* 27 jul (sesión 24): listón de estado (Separada/Vendida/Rentada)
+            sobre la esquina de la portada — se ve también en la miniatura
+            al compartir la liga. */}
+        {distintivo && (
+          <span
+            style={{
+              position: 'absolute', top: 14, left: 0, background: 'var(--ta-accent)',
+              color: '#fff', fontSize: 12, fontWeight: 500, letterSpacing: 1.5,
+              textTransform: 'uppercase', padding: '6px 14px 6px 12px', borderRadius: '0 6px 6px 0',
+            }}
+          >
+            {distintivo}
+          </span>
+        )}
       </button>
       {resto.length > 0 && (
         <div className="pp-galeria-grid">
@@ -85,6 +99,7 @@ export default function PresentacionEstandar({ datos }) {
     marcaTexto, telefonoPrincipal, telefonoWa, precioTexto,
     tieneUbicacion, amenidadesActivas, terminosRenta, mensajeWa,
     plano, zonaConectividad, serviciosZona, hayZonaConectividad,
+    etiquetaEstado, bajoDePrecio, precioAnteriorTexto,
     compartido, compartirLiga,
   } = datos
 
@@ -105,7 +120,7 @@ export default function PresentacionEstandar({ datos }) {
 
   return (
     <div style={{ minHeight: '100svh', background: '#fff' }}>
-      <GaleriaFotos fotos={fotos} logoUrl={perfil?.logo_url} onAbrir={setLightboxIndex} />
+      <GaleriaFotos fotos={fotos} logoUrl={perfil?.logo_url} onAbrir={setLightboxIndex} distintivo={etiquetaEstado} />
       <Lightbox
         fotos={fotos}
         indice={lightboxIndex}
@@ -274,6 +289,25 @@ export default function PresentacionEstandar({ datos }) {
 
         <div className="pp-sidebar">
           <div style={{ background: '#fff', border: '0.5px solid var(--ta-border)', borderRadius: 12, padding: '20px', marginBottom: 16 }}>
+            {/* 27 jul (sesión 24): distintivos — nunca llegan los dos a la
+                vez (garantizado en el hook). El chip va en su propio
+                renglón arriba del precio: inline dentro del <p> se
+                desacomodaba cuando el precio envolvía línea. */}
+            {etiquetaEstado && (
+              <span style={{ display: 'inline-block', fontSize: 11.5, fontWeight: 500, background: 'var(--ta-bg)', color: 'var(--ta-accent)', padding: '4px 10px', borderRadius: 10, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                {etiquetaEstado}
+              </span>
+            )}
+            {bajoDePrecio && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 500, background: 'var(--ta-bg)', color: 'var(--ta-accent)', padding: '4px 10px', borderRadius: 10, marginBottom: 8 }}>
+                ↓ Bajó de precio
+              </span>
+            )}
+            {precioAnteriorTexto && (
+              <p style={{ margin: '0 0 2px', fontSize: 14, color: 'var(--ta-text-muted)', textDecoration: 'line-through' }}>
+                {precioAnteriorTexto}{propiedad.operacion === 'renta' ? ' /mes' : ''}
+              </p>
+            )}
             {precioTexto && (
               <p style={{ margin: '0 0 16px', fontSize: 26, fontWeight: 500, color: 'var(--ta-accent)' }}>
                 {precioTexto}{propiedad.operacion === 'renta' ? ' /mes' : ''}
