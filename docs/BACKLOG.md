@@ -8,7 +8,13 @@
 > sueltos anteriores (Sesiones 2 a 9) — esos quedan como archivo
 > histórico, no se vuelven a tocar.
 >
-> Última actualización: 27 de julio 2026 (sesión 23, noche — 2ª ronda de
+> Última actualización: 27 de julio 2026 (sesión 23, cierre — **todo lo
+> de la sesión está comiteado (`0ed3e19`) y DESPLEGADO a producción**,
+> verificado contra el remoto. Lo único que queda de esta sesión es
+> probar en producción/celular real, ver los `[ ]` sueltos en las
+> secciones de plano, liga al CRM, back de modales y orden en móvil.)
+>
+> Actualización anterior: 27 de julio 2026 (sesión 23, noche — 2ª ronda de
 > construcción: toggle de página pública en el plano (reemplaza el botón
 > con confirm de la ronda anterior) y liga "¿Eres asesor? Abrir en
 > TuAsesor" al pie de los 3 temas, con su deep link en `App.jsx`.
@@ -116,17 +122,20 @@
 
 ## 🚀 Pendiente inmediato — Deploy
 
-- [ ] **Comitear y desplegar lo construido el 27 jul (sesión 23)** —
-  precio/contacto arriba en móvil (3 temas), plano publicable + sección
-  en los 3 temas, toggle de publicación, liga "Abrir en TuAsesor" al pie
-  de los 3 temas + deep link en `App.jsx`, hook de back para modales
-  públicos, "Zona y conectividad" en PDF y página pública, más los
-  cambios de `CLAUDE.md` y este archivo. Verificado con build y lint limpios (sin errores
-  nuevos contra el baseline), pero **sin probar en la app corriendo**.
-  La migración `publicar_planos_en_pagina_publica` **ya está aplicada en
-  Supabase** — si al probar la Bóveda marca error de columna
-  desconocida, recargar el schema desde el Dashboard (bug de caché de
-  PostgREST ya documentado: el `NOTIFY` por SQL no basta).
+- [x] **Comiteado y desplegado el 27 jul (sesión 23) — CERRADO.**
+  Commit `0ed3e19`, verificado contra el remoto: `origin/main` en ese
+  mismo commit, `origin/gh-pages` actualizada (`f611754` — antes llevaba
+  desde el 18 jul) y árbol de trabajo limpio. Incluye: precio/contacto
+  arriba en móvil (3 temas), plano publicable + sección en los 3 temas,
+  toggle de publicación, liga "Abrir en TuAsesor" al pie de los 3 temas
+  + deep link en `App.jsx`, hook de back para modales públicos, "Zona y
+  conectividad" en PDF y página pública, más `CLAUDE.md` y este archivo.
+  Probado por Okta en `localhost` antes de subir, y verificado con build
+  y lint sin errores nuevos contra el baseline. La migración
+  `publicar_planos_en_pagina_publica` ya estaba aplicada en Supabase.
+  **Falta la prueba en producción** — ver los pendientes marcados abajo
+  en cada sección (plano en los 3 temas, liga con y sin sesión, back de
+  los modales y orden en móvil, todos en celular real).
 
 - [x] **Comitear y desplegar todo lo acumulado desde la Sesión 22
   (candado multi-usuario) hasta 24 jul (campos de renta)** — CERRADO.
